@@ -119,7 +119,7 @@ struct CommandMenuSection: View {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         if !pasteboard.setString(text, forType: .string) {
-            sessionManager.lastError = "Unable to copy output to clipboard."
+            sessionManager.lastError = "Unable to copy output to clipboard"
         }
     }
 }

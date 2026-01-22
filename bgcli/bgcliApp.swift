@@ -2,7 +2,7 @@
 //  bgcliApp.swift
 //  bgcli
 //
-//  Created by bgcli
+//  Created for bgcli project
 //
 
 import SwiftUI

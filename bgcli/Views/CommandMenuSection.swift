@@ -101,7 +101,7 @@ struct CommandMenuSection: View {
             return line
         }
         let prefix = line.prefix(Self.outputPreviewLineLength)
-        return "\(prefix)\(Self.outputPreviewEllipsis)"
+        return String(prefix) + Self.outputPreviewEllipsis
     }
 
     @MainActor
@@ -119,7 +119,7 @@ struct CommandMenuSection: View {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         if !pasteboard.setString(text, forType: .string) {
-            sessionManager.lastError = "Unable to copy output to clipboard"
+            sessionManager.lastError = "Failed to copy output to clipboard"
         }
     }
 }

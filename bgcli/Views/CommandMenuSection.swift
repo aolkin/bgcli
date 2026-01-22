@@ -5,6 +5,7 @@
 //  Created for bgcli project
 //
 
+import AppKit
 import SwiftUI
 
 struct CommandMenuSection: View {
@@ -13,20 +14,39 @@ struct CommandMenuSection: View {
     let command: Command
     let state: SessionState
 
+    private static let outputPreviewLineCount = 10
+    private static let outputPreviewLineLength = 60
+
     var body: some View {
         Menu {
-            commandStateActions
+            outputPreviewSection
 
             Divider()
 
-            Button("View Output") {
+            Button("Copy Output") {
+                copyOutputToPasteboard()
             }
-            .disabled(true)
-            .help("Output preview not available yet")
+            .disabled(state.lastOutput.isEmpty)
+
+            commandStateActions
         } label: {
             Label(commandLabel, systemImage: state.statusIcon)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(statusColor)
+        }
+    }
+
+    private var outputPreviewSection: some View {
+        Section {
+            if outputPreviewLines.isEmpty {
+                Text("No output yet")
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(outputPreviewLines.indices, id: \.self) { index in
+                    Text(truncatedOutputLine(outputPreviewLines[index]))
+                        .font(.system(.caption, design: .monospaced))
+                }
+            }
         }
     }
 
@@ -71,6 +91,18 @@ struct CommandMenuSection: View {
         return .secondary
     }
 
+    private var outputPreviewLines: [String] {
+        Array(state.lastOutput.suffix(Self.outputPreviewLineCount))
+    }
+
+    private func truncatedOutputLine(_ line: String) -> String {
+        guard line.count > Self.outputPreviewLineLength else {
+            return line
+        }
+        let prefix = line.prefix(Self.outputPreviewLineLength)
+        return "\(prefix)..."
+    }
+
     @MainActor
     private func handleAction(_ action: @escaping () async throws -> Void) async {
         do {
@@ -78,6 +110,12 @@ struct CommandMenuSection: View {
         } catch {
             sessionManager.lastError = error.localizedDescription
         }
+    }
+
+    private func copyOutputToPasteboard() {
+        let text = state.lastOutput.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 

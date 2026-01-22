@@ -65,11 +65,8 @@ enum Shell {
             }
             
             actualCommand = sshCommand
-        } else if let workingDirectory = workingDirectory {
-            // Local execution with working directory
-            actualCommand = "cd \(workingDirectory) && \(command)"
         } else {
-            // Simple local execution
+            // Local execution
             actualCommand = command
         }
         
@@ -81,7 +78,7 @@ enum Shell {
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
             process.arguments = ["-c", actualCommand]
             
-            // Set working directory if specified and not SSH
+            // Set working directory for local execution
             if let workingDirectory = workingDirectory, host == nil {
                 process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory)
             }

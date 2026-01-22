@@ -268,15 +268,16 @@ final class SessionManager: ObservableObject {
         }
     }
     
-    func getOutput(commandId: String, lines: Int = SessionManager.outputLineCount) async throws -> [String] {
+    func getOutput(commandId: String, lines: Int? = nil) async throws -> [String] {
         try await withCommandLock(commandId: commandId) {
             guard let command = command(for: commandId) else {
                 throw SessionManagerError.commandNotFound(commandId)
             }
             
+            let linesToFetch = lines ?? Self.outputLineCount
             let output = try await TmuxService.captureOutput(
                 sessionName: command.sessionName,
-                lines: lines,
+                lines: linesToFetch,
                 host: command.host
             )
             
@@ -457,10 +458,10 @@ final class SessionManager: ObservableObject {
             UNUserNotificationCenter.current().requestAuthorization(
                 options: [.alert, .badge, .sound]
             ) { [weak self] granted, error in
-                if let error {
-                    self?.recordError(error)
+                if let error = error {
+                    Task { await MainActor.run { self?.recordError(error) } }
                 } else if !granted {
-                    self?.recordError(SessionManagerError.notificationDenied)
+                    Task { await MainActor.run { self?.recordError(SessionManagerError.notificationDenied) } }
                 }
                 continuation.resume(returning: granted)
             }
@@ -511,7 +512,7 @@ final class SessionManager: ObservableObject {
         operationGenerations[commandId, default: 0] += 1
         defer {
             inFlightOperations.remove(commandId)
-            lock.unlock()
+            Task { await lock.unlock() }
         }
         return try await operation()
     }

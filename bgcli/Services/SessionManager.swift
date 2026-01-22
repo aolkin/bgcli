@@ -287,13 +287,26 @@ final class SessionManager: ObservableObject {
         guard let command = command(for: commandId) else {
             throw SessionManagerError.commandNotFound(commandId)
         }
+
+        let currentOutput = sessionStates[commandId]?.lastOutput ?? []
+        guard !inFlightOperations.contains(commandId) else {
+            return currentOutput
+        }
+        let generationSnapshot = operationGenerations[commandId] ?? 0
         
         let output = try await TmuxService.captureOutput(
             sessionName: command.sessionName,
             lines: lines,
             host: command.host
         )
-        
+        let latestOutput = sessionStates[commandId]?.lastOutput ?? []
+        if inFlightOperations.contains(commandId) {
+            return latestOutput
+        }
+        if operationGenerations[commandId] ?? 0 != generationSnapshot {
+            return latestOutput.isEmpty ? output : latestOutput
+        }
+
         var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
         state.lastOutput = output
         sessionStates[commandId] = state

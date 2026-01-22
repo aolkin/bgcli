@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1A000001000000000000001 /* bgcliApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000002000000000000001 /* bgcliApp.swift */; };
 		1A000003000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A000004000000000000001 /* Assets.xcassets */; };
+		1A000019000000000000001 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00001A000000000000001 /* Shell.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -20,6 +21,7 @@
 		1A000008000000000000001 /* Services */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Services; sourceTree = "<group>"; };
 		1A000009000000000000001 /* Views */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Views; sourceTree = "<group>"; };
 		1A00000A000000000000001 /* Utilities */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Utilities; sourceTree = "<group>"; };
+		1A00001A000000000000001 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,7 +50,7 @@
 				1A000007000000000000001 /* Models */,
 				1A000008000000000000001 /* Services */,
 				1A000009000000000000001 /* Views */,
-				1A00000A000000000000001 /* Utilities */,
+				1A00001B000000000000001 /* Utilities */,
 				1A000004000000000000001 /* Assets.xcassets */,
 				1A000006000000000000001 /* Info.plist */,
 			);
@@ -61,6 +63,14 @@
 				1A000005000000000000001 /* bgcli.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		1A00001B000000000000001 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				1A00001A000000000000001 /* Shell.swift */,
+			);
+			path = Utilities;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -133,6 +143,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A000001000000000000001 /* bgcliApp.swift in Sources */,
+				1A000019000000000000001 /* Shell.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

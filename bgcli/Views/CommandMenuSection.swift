@@ -16,6 +16,7 @@ struct CommandMenuSection: View {
 
     private static let outputPreviewLineCount = 10
     private static let outputPreviewLineLength = 60
+    private static let outputPreviewEllipsis = "..."
 
     var body: some View {
         Menu {
@@ -42,8 +43,8 @@ struct CommandMenuSection: View {
                 Text("No output yet")
                     .foregroundColor(.secondary)
             } else {
-                ForEach(outputPreviewLines.indices, id: \.self) { index in
-                    Text(truncatedOutputLine(outputPreviewLines[index]))
+                ForEach(Array(outputPreviewLines.enumerated()), id: \.offset) { _, line in
+                    Text(truncatedOutputLine(line))
                         .font(.system(.caption, design: .monospaced))
                 }
             }
@@ -100,7 +101,7 @@ struct CommandMenuSection: View {
             return line
         }
         let prefix = line.prefix(Self.outputPreviewLineLength)
-        return "\(prefix)..."
+        return "\(prefix)\(Self.outputPreviewEllipsis)"
     }
 
     @MainActor

@@ -52,19 +52,25 @@ enum Shell {
         workingDirectory: String? = nil,
         environment: [String: String]? = nil
     ) async throws -> ShellResult {
+        // Helper function to escape strings for shell execution
+        func shellEscape(_ string: String) -> String {
+            // Escape single quotes by replacing ' with '\''
+            return string.replacingOccurrences(of: "'", with: "'\\''")
+        }
+        
         // Determine the actual command to execute
         let actualCommand: String
         if let host = host {
-            // SSH execution
-            var sshCommand = "ssh -o BatchMode=yes -o ConnectTimeout=10 \(host)"
-            
+            // SSH execution - build the remote command
+            let remoteCommand: String
             if let workingDirectory = workingDirectory {
-                sshCommand += " 'cd \(workingDirectory) && \(command)'"
+                remoteCommand = "cd '\(shellEscape(workingDirectory))' && \(command)"
             } else {
-                sshCommand += " '\(command)'"
+                remoteCommand = command
             }
             
-            actualCommand = sshCommand
+            // Wrap the entire remote command in single quotes for SSH
+            actualCommand = "ssh -o BatchMode=yes -o ConnectTimeout=10 \(host) '\(shellEscape(remoteCommand))'"
         } else {
             // Local execution
             actualCommand = command

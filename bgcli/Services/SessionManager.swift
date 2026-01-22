@@ -33,6 +33,11 @@ final class SessionManager: ObservableObject {
         }
     }
     
+    private struct RestartTask {
+        let id: UUID
+        let task: Task<Void, Never>
+    }
+    
     @Published private(set) var commands: [Command] = []
     @Published private(set) var sessionStates: [String: SessionState] = [:]
     @Published var isLoading = false
@@ -45,7 +50,7 @@ final class SessionManager: ObservableObject {
     private let pollInterval: TimeInterval
     private var loadTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
-    private var restartTasks: [String: Task<Void, Never>] = [:]
+    private var restartTasks: [String: RestartTask] = [:]
     private var isRefreshing = false
     private var hasRequestedNotificationPermission = false
     
@@ -60,7 +65,7 @@ final class SessionManager: ObservableObject {
     deinit {
         loadTask?.cancel()
         pollTask?.cancel()
-        restartTasks.values.forEach { $0.cancel() }
+        restartTasks.values.forEach { $0.task.cancel() }
     }
     
     var commandsWithState: [CommandWithState] {
@@ -90,9 +95,6 @@ final class SessionManager: ObservableObject {
         syncSessionStates()
     }
     
-    func reloadConfig() async throws {
-        try await loadConfig()
-    }
     
     func saveConfig() async throws {
         let config = AppConfig(commands: commands)
@@ -318,8 +320,9 @@ final class SessionManager: ObservableObject {
         let delaySeconds = max(0, command.autoRestart.retryDelaySeconds)
         let commandId = command.id
         
-        restartTasks[commandId]?.cancel()
-        restartTasks[commandId] = Task { [weak self] in
+        restartTasks[commandId]?.task.cancel()
+        let taskId = UUID()
+        let task = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: self.nanoseconds(for: TimeInterval(delaySeconds)))
             do {
@@ -327,8 +330,9 @@ final class SessionManager: ObservableObject {
             } catch {
                 self.recordError(error)
             }
-            self.restartTasks[commandId] = nil
+            self.clearRestartTask(commandId: commandId, taskId: taskId)
         }
+        restartTasks[commandId] = RestartTask(id: taskId, task: task)
     }
     
     private func sendFailureNotification(for command: Command, failures: Int) {
@@ -368,6 +372,14 @@ final class SessionManager: ObservableObject {
     
     private func nanoseconds(for seconds: TimeInterval) -> UInt64 {
         let clamped = max(0, seconds)
-        return UInt64(clamped * TimeInterval(Self.nanosecondsPerSecond))
+        let maxSeconds = TimeInterval(UInt64.max) / TimeInterval(Self.nanosecondsPerSecond)
+        let safeSeconds = min(clamped, maxSeconds)
+        return UInt64(safeSeconds * TimeInterval(Self.nanosecondsPerSecond))
+    }
+    
+    private func clearRestartTask(commandId: String, taskId: UUID) {
+        if restartTasks[commandId]?.id == taskId {
+            restartTasks[commandId] = nil
+        }
     }
 }

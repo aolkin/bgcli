@@ -38,7 +38,12 @@ final class SessionManager: ObservableObject {
     @Published var isLoading = false
     @Published var lastError: String?
     
+    private static let outputLineCount = 10
+    private static let failureResetInterval: TimeInterval = 30
+    private static let nanosecondsPerSecond: UInt64 = 1_000_000_000
+    
     private let pollInterval: TimeInterval
+    private var loadTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var isRefreshing = false
     private var hasRequestedNotificationPermission = false
@@ -46,12 +51,13 @@ final class SessionManager: ObservableObject {
     init(pollInterval: TimeInterval = 3.0) {
         self.pollInterval = pollInterval
         
-        Task {
-            await loadInitialConfig()
+        loadTask = Task { [weak self] in
+            await self?.loadInitialConfig()
         }
     }
     
     deinit {
+        loadTask?.cancel()
         pollTask?.cancel()
     }
     
@@ -194,7 +200,7 @@ final class SessionManager: ObservableObject {
                         do {
                             state.lastOutput = try await TmuxService.captureOutput(
                                 sessionName: command.sessionName,
-                                lines: 10,
+                                lines: Self.outputLineCount,
                                 host: command.host
                             )
                         } catch {
@@ -235,7 +241,7 @@ final class SessionManager: ObservableObject {
                 do {
                     state.lastOutput = try await TmuxService.captureOutput(
                         sessionName: command.sessionName,
-                        lines: 10,
+                        lines: Self.outputLineCount,
                         host: command.host
                     )
                 } catch {
@@ -255,7 +261,7 @@ final class SessionManager: ObservableObject {
         }
     }
     
-    func getOutput(commandId: String, lines: Int = 10) async throws -> [String] {
+    func getOutput(commandId: String, lines: Int = SessionManager.outputLineCount) async throws -> [String] {
         guard let command = command(for: commandId) else {
             throw SessionManagerError.commandNotFound(commandId)
         }
@@ -306,7 +312,8 @@ final class SessionManager: ObservableObject {
             guard let self else { return }
             while !Task.isCancelled {
                 await self.refreshAllStatuses()
-                try? await Task.sleep(nanoseconds: UInt64(self.pollInterval * 1_000_000_000))
+                let delay = UInt64(self.pollInterval * TimeInterval(Self.nanosecondsPerSecond))
+                try? await Task.sleep(nanoseconds: delay)
             }
         }
     }
@@ -316,7 +323,7 @@ final class SessionManager: ObservableObject {
         guard !state.restartPaused else { return }
         
         if let lastStart = state.lastStartTime, let lastExit = state.lastExitTime {
-            if lastExit.timeIntervalSince(lastStart) > 30 {
+            if lastExit.timeIntervalSince(lastStart) > Self.failureResetInterval {
                 state.consecutiveFailures = 0
             }
         }
@@ -333,7 +340,7 @@ final class SessionManager: ObservableObject {
         let commandId = command.id
         
         Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(delaySeconds) * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: UInt64(delaySeconds) * Self.nanosecondsPerSecond)
             guard let self else { return }
             do {
                 try await self.startSession(commandId: commandId)

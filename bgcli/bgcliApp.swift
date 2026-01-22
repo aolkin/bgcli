@@ -9,17 +9,12 @@ import SwiftUI
 
 @main
 struct bgcliApp: App {
+    @StateObject private var sessionManager = SessionManager()
+
     var body: some Scene {
         MenuBarExtra("bgcli", systemImage: "terminal") {
-            Text("bgcli")
-                .font(.headline)
-            
-            Divider()
-            
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q")
+            MenuContentView()
+                .environmentObject(sessionManager)
         }
         .menuBarExtraStyle(.menu)
     }

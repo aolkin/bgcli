@@ -95,7 +95,6 @@ final class SessionManager: ObservableObject {
         syncSessionStates()
     }
     
-    
     func saveConfig() async throws {
         let config = AppConfig(commands: commands)
         try config.save()
@@ -292,14 +291,14 @@ final class SessionManager: ObservableObject {
             state.isRunning = false
             if wasRunning {
                 state.lastExitTime = Date()
-                handleAutoRestart(for: command, state: &state)
+                await handleAutoRestart(for: command, state: &state)
             }
         }
         
         sessionStates[command.id] = state
     }
     
-    private func handleAutoRestart(for command: Command, state: inout SessionState) {
+    private func handleAutoRestart(for command: Command, state: inout SessionState) async {
         guard command.autoRestart.enabled else { return }
         guard !state.restartPaused else { return }
         
@@ -313,7 +312,7 @@ final class SessionManager: ObservableObject {
         
         if state.consecutiveFailures >= command.autoRestart.maxRetries {
             state.restartPaused = true
-            sendFailureNotification(for: command, failures: state.consecutiveFailures)
+            await sendFailureNotification(for: command, failures: state.consecutiveFailures)
             return
         }
         
@@ -335,33 +334,35 @@ final class SessionManager: ObservableObject {
         restartTasks[commandId] = RestartTask(id: taskId, task: task)
     }
     
-    private func sendFailureNotification(for command: Command, failures: Int) {
-        Task { [weak self] in
-            await self?.requestNotificationAuthorization()
-            
-            let content = UNMutableNotificationContent()
-            content.title = "bgcli: Session Failed"
-            content.body = "\(command.name) has failed \(failures) times and auto-restart has been paused."
-            
-            let request = UNNotificationRequest(
-                identifier: UUID().uuidString,
-                content: content,
-                trigger: nil
-            )
-            
-            UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
-        }
+    private func sendFailureNotification(for command: Command, failures: Int) async {
+        let isAuthorized = await requestNotificationAuthorization()
+        guard isAuthorized else { return }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "bgcli: Session Failed"
+        content.body = "\(command.name) has failed \(failures) times and auto-restart has been paused."
+        
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
     
-    private func requestNotificationAuthorization() async {
-        guard !hasRequestedNotificationPermission else { return }
+    private func requestNotificationAuthorization() async -> Bool {
+        guard !hasRequestedNotificationPermission else { return true }
         hasRequestedNotificationPermission = true
         
-        await withCheckedContinuation { continuation in
+        return await withCheckedContinuation { continuation in
             UNUserNotificationCenter.current().requestAuthorization(
                 options: [.alert, .badge, .sound]
-            ) { _, _ in
-                continuation.resume()
+            ) { granted, error in
+                if let error {
+                    self.recordError(error)
+                }
+                continuation.resume(returning: granted)
             }
         }
     }

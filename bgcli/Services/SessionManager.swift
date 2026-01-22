@@ -174,15 +174,20 @@ final class SessionManager: ObservableObject {
 
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
             state.restartPaused = true
-            sessionStates[commandId] = state
             restartTasks[commandId]?.task.cancel()
             restartTasks[commandId] = nil
 
-            try await TmuxService.killSession(name: command.sessionName, host: command.host)
+            var killSucceeded = false
+            defer {
+                if killSucceeded {
+                    state.isRunning = false
+                    state.lastExitTime = Date()
+                }
+                sessionStates[commandId] = state
+            }
 
-            state.isRunning = false
-            state.lastExitTime = Date()
-            sessionStates[commandId] = state
+            try await TmuxService.killSession(name: command.sessionName, host: command.host)
+            killSucceeded = true
         }
     }
     
@@ -327,6 +332,7 @@ final class SessionManager: ObservableObject {
         generationSnapshot: [String: Int]
     ) async {
         guard !inFlightOperations.contains(command.id) else { return }
+        // Ignore stale polling results if a newer operation started after the snapshot.
         let snapshotGeneration = generationSnapshot[command.id] ?? 0
         if operationGenerations[command.id] ?? 0 != snapshotGeneration {
             return

@@ -28,12 +28,12 @@ jobs:
           -sdk macosx \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGN_IDENTITY="" \
-          CODE_SIGN_STYLE=Automatic
+          CODE_SIGN_STYLE=Manual
 
     - name: Create app directory
       run: |
         mkdir -p "bgcli_build"
-        cp -r build/Release/bgcli.app bgcli_build/
+        cp -r build/Build/Products/Release/bgcli.app bgcli_build/
 
     - name: Create ZIP archive
       run: |
@@ -57,5 +57,5 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: `📦 Build artifact available: [bgcli-macos.zip](https://github.com/${{ github.repository }}/actions/runs/${context.runId})`
+            body: `📦 Build artifact available: [bgcli-macos.zip](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
           });

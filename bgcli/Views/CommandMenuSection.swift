@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct CommandMenuSection: View {
+    @EnvironmentObject private var sessionManager: SessionManager
+
     let command: Command
     let state: SessionState
 
@@ -64,8 +66,6 @@ struct CommandMenuSection: View {
         }
         return .secondary
     }
-
-    @EnvironmentObject private var sessionManager: SessionManager
 
     @MainActor
     private func handleAction(_ action: @escaping () async throws -> Void) async {

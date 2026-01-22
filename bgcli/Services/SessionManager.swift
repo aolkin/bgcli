@@ -81,6 +81,7 @@ final class SessionManager: ObservableObject {
     private var restartTasks: [String: RestartTask] = [:]
     private var commandLocks: [String: CommandLock] = [:]
     private var inFlightOperations: Set<String> = []
+    private var operationGenerations: [String: Int] = [:]
     private var isRefreshing = false
     private var hasRequestedNotificationPermission = false
     
@@ -143,6 +144,7 @@ final class SessionManager: ObservableObject {
         restartTasks[id] = nil
         commandLocks[id] = nil
         inFlightOperations.remove(id)
+        operationGenerations[id] = nil
         try await saveConfig()
     }
     
@@ -184,6 +186,8 @@ final class SessionManager: ObservableObject {
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
             state.restartPaused = true
             sessionStates[commandId] = state
+            restartTasks[commandId]?.task.cancel()
+            restartTasks[commandId] = nil
 
             try await TmuxService.killSession(name: command.sessionName, host: command.host)
 
@@ -244,11 +248,16 @@ final class SessionManager: ObservableObject {
         
         for (host, hostCommands) in groupedCommands {
             do {
+                let generationSnapshot = operationGenerations
                 let sessions = try await TmuxService.listSessions(host: host)
                 let runningSessions = Set(sessions.map { $0.name })
                 
                 for command in hostCommands {
-                    await updateState(for: command, runningSessions: runningSessions)
+                    await updateState(
+                        for: command,
+                        runningSessions: runningSessions,
+                        generationSnapshot: generationSnapshot
+                    )
                 }
             } catch {
                 recordError(error)
@@ -260,10 +269,15 @@ final class SessionManager: ObservableObject {
         guard let command = command(for: commandId) else { return }
         
         do {
+            let generationSnapshot = operationGenerations
             let sessions = try await TmuxService.listSessions(host: command.host)
             let runningSessions = Set(sessions.map { $0.name })
             
-            await updateState(for: command, runningSessions: runningSessions)
+            await updateState(
+                for: command,
+                runningSessions: runningSessions,
+                generationSnapshot: generationSnapshot
+            )
         } catch {
             recordError(error)
         }
@@ -325,8 +339,16 @@ final class SessionManager: ObservableObject {
         }
     }
 
-    private func updateState(for command: Command, runningSessions: Set<String>) async {
+    private func updateState(
+        for command: Command,
+        runningSessions: Set<String>,
+        generationSnapshot: [String: Int]
+    ) async {
         guard !inFlightOperations.contains(command.id) else { return }
+        let snapshotGeneration = generationSnapshot[command.id] ?? 0
+        if operationGenerations[command.id] ?? 0 != snapshotGeneration {
+            return
+        }
         var state = sessionStates[command.id] ?? SessionState(commandId: command.id)
         let wasRunning = state.isRunning
         let isRunningNow = runningSessions.contains(command.sessionName)
@@ -484,14 +506,15 @@ final class SessionManager: ObservableObject {
         let lock = commandLock(for: commandId)
         await lock.lock()
         inFlightOperations.insert(commandId)
+        operationGenerations[commandId, default: 0] += 1
         do {
             let result = try await operation()
             inFlightOperations.remove(commandId)
-            await lock.unlock()
+            lock.unlock()
             return result
         } catch {
             inFlightOperations.remove(commandId)
-            await lock.unlock()
+            lock.unlock()
             throw error
         }
     }

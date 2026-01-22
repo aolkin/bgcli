@@ -8,11 +8,14 @@
 import Foundation
 
 enum TerminalLauncherError: Error, LocalizedError {
+    case invalidArgument(String)
     case scriptExecutionFailed(String)
     case noTerminalAvailable
 
     var errorDescription: String? {
         switch self {
+        case .invalidArgument(let message):
+            return message
         case .scriptExecutionFailed(let message):
             return "Failed to run terminal command: \(message)"
         case .noTerminalAvailable:
@@ -27,11 +30,19 @@ enum TerminalLauncher {
         "/System/Applications/Utilities/Terminal.app",
         "/Applications/Utilities/Terminal.app"
     ]
+    private static let allowedHostCharacters = CharacterSet(
+        charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_@[]:"
+    )
+    private static let invalidSessionCharacters = CharacterSet.controlCharacters
 
     static func openSession(
         sessionName: String,
         host: String?
     ) async throws {
+        try validateSessionName(sessionName)
+        if let host = host {
+            try validateHost(host)
+        }
         let command = buildCommand(sessionName: sessionName, host: host)
         let escapedCommand = escapeForAppleScript(command)
 
@@ -57,22 +68,25 @@ enum TerminalLauncher {
     }
 
     private static func buildCommand(sessionName: String, host: String?) -> String {
-        let escapedSession = shellEscape(sessionName)
+        let quotedSession = shellQuote(sessionName)
         if let host = host {
-            let escapedHost = shellEscape(host)
-            return "ssh -t '\(escapedHost)' tmux attach -t '\(escapedSession)'"
+            let quotedHost = shellQuote(host)
+            return "ssh -t -- \(quotedHost) tmux attach -t \(quotedSession)"
         }
-        return "tmux attach -t '\(escapedSession)'"
+        return "tmux attach -t \(quotedSession)"
     }
 
-    private static func shellEscape(_ string: String) -> String {
-        string.replacingOccurrences(of: "'", with: "'\\''")
+    private static func shellQuote(_ string: String) -> String {
+        "'\(string.replacingOccurrences(of: "'", with: "'\"'\"'"))'"
     }
 
     private static func escapeForAppleScript(_ command: String) -> String {
         command
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\t", with: "\\t")
     }
 
     private static func iTermScript(command: String) -> String {
@@ -98,10 +112,31 @@ enum TerminalLauncher {
             throw TerminalLauncherError.scriptExecutionFailed("Unable to compile AppleScript")
         }
         var error: NSDictionary?
-        appleScript.executeAndReturnError(&error)
+        let result = appleScript.executeAndReturnError(&error)
         if let error = error {
             let message = error[NSAppleScript.errorMessage] as? String ?? "Unknown AppleScript error"
             throw TerminalLauncherError.scriptExecutionFailed(message)
+        }
+    }
+
+    private static func validateHost(_ host: String) throws {
+        guard !host.isEmpty else {
+            throw TerminalLauncherError.invalidArgument("Invalid host value for terminal session")
+        }
+        guard host.rangeOfCharacter(from: allowedHostCharacters.inverted) == nil else {
+            throw TerminalLauncherError.invalidArgument("Invalid host value for terminal session")
+        }
+        if host.hasPrefix("-") {
+            throw TerminalLauncherError.invalidArgument("Invalid host value for terminal session")
+        }
+    }
+
+    private static func validateSessionName(_ sessionName: String) throws {
+        guard !sessionName.isEmpty else {
+            throw TerminalLauncherError.invalidArgument("Invalid session name for terminal session")
+        }
+        if sessionName.rangeOfCharacter(from: invalidSessionCharacters) != nil {
+            throw TerminalLauncherError.invalidArgument("Invalid session name for terminal session")
         }
     }
 }

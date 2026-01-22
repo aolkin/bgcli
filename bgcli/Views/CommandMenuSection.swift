@@ -115,8 +115,11 @@ struct CommandMenuSection: View {
 
     private func copyOutputToPasteboard() {
         let text = state.lastOutput.joined(separator: "\n")
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        if !pasteboard.setString(text, forType: .string) {
+            sessionManager.lastError = "Unable to copy output to clipboard."
+        }
     }
 }
 

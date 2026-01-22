@@ -17,5 +17,12 @@ struct bgcliApp: App {
                 .environmentObject(sessionManager)
         }
         .menuBarExtraStyle(.menu)
+
+        Window("Settings", id: "settings") {
+            SettingsView()
+                .environmentObject(sessionManager)
+        }
+        .windowResizability(.contentSize)
+        .defaultSize(width: 800, height: 600)
     }
 }

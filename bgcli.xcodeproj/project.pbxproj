@@ -17,12 +17,14 @@
 		1A000028000000000000001 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000027000000000000001 /* SessionManager.swift */; };
 		1A00002A000000000000001 /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000029000000000000001 /* MenuContentView.swift */; };
 		1A00002C000000000000001 /* CommandMenuSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00002B000000000000001 /* CommandMenuSection.swift */; };
+		93ECA6ED2F22333E003C9DD5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93ECA6EC2F22333E003C9DD5 /* SettingsView.swift */; };
+		93ECA6EE2F22333E003C9DD5 /* CommandFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93ECA6EB2F22333E003C9DD5 /* CommandFormView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		1A000005000000000000001 /* bgcli.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = bgcli.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A000002000000000000001 /* bgcliApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = bgcliApp.swift; sourceTree = "<group>"; };
 		1A000004000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1A000005000000000000001 /* bgcli.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = bgcli.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A000006000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1A00001A000000000000001 /* Command.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Command.swift; sourceTree = "<group>"; };
 		1A00001C000000000000001 /* SessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionState.swift; sourceTree = "<group>"; };
@@ -32,6 +34,8 @@
 		1A000027000000000000001 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		1A000029000000000000001 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 		1A00002B000000000000001 /* CommandMenuSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandMenuSection.swift; sourceTree = "<group>"; };
+		93ECA6EB2F22333E003C9DD5 /* CommandFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandFormView.swift; sourceTree = "<group>"; };
+		93ECA6EC2F22333E003C9DD5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,6 +71,14 @@
 			path = bgcli;
 			sourceTree = "<group>";
 		};
+		1A00000E000000000000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1A000005000000000000001 /* bgcli.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		1A00001F000000000000001 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -89,6 +101,8 @@
 		1A000021000000000000001 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				93ECA6EB2F22333E003C9DD5 /* CommandFormView.swift */,
+				93ECA6EC2F22333E003C9DD5 /* SettingsView.swift */,
 				1A000029000000000000001 /* MenuContentView.swift */,
 				1A00002B000000000000001 /* CommandMenuSection.swift */,
 			);
@@ -101,14 +115,6 @@
 				1A000023000000000000001 /* Shell.swift */,
 			);
 			path = Utilities;
-			sourceTree = "<group>";
-		};
-		1A00000E000000000000001 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				1A000005000000000000001 /* bgcli.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -181,6 +187,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A000001000000000000001 /* bgcliApp.swift in Sources */,
+				93ECA6ED2F22333E003C9DD5 /* SettingsView.swift in Sources */,
+				93ECA6EE2F22333E003C9DD5 /* CommandFormView.swift in Sources */,
 				1A000019000000000000001 /* Command.swift in Sources */,
 				1A00001B000000000000001 /* SessionState.swift in Sources */,
 				1A00001D000000000000001 /* AppConfig.swift in Sources */,
@@ -370,20 +378,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1A000014000000000000001 /* Build configuration list for PBXProject "bgcli" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1A000015000000000000001 /* Debug */,
-				1A000016000000000000001 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		1A000010000000000000001 /* Build configuration list for PBXNativeTarget "bgcli" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A000017000000000000001 /* Debug */,
 				1A000018000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A000014000000000000001 /* Build configuration list for PBXProject "bgcli" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A000015000000000000001 /* Debug */,
+				1A000016000000000000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

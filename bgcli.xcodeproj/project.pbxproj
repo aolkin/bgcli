@@ -12,7 +12,7 @@
 		1A000019000000000000001 /* Command.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00001A000000000000001 /* Command.swift */; };
 		1A00001B000000000000001 /* SessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00001C000000000000001 /* SessionState.swift */; };
 		1A00001D000000000000001 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00001E000000000000001 /* AppConfig.swift */; };
-		1A00001F000000000000001 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000023000000000000001 /* Shell.swift */; };
+		1A000024000000000000001 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000023000000000000001 /* Shell.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -172,7 +172,7 @@
 				1A000019000000000000001 /* Command.swift in Sources */,
 				1A00001B000000000000001 /* SessionState.swift in Sources */,
 				1A00001D000000000000001 /* AppConfig.swift in Sources */,
-				1A00001F000000000000001 /* Shell.swift in Sources */,
+				1A000024000000000000001 /* Shell.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

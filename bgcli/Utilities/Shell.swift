@@ -58,18 +58,29 @@ enum Shell {
             return string.replacingOccurrences(of: "'", with: "'\\''")
         }
         
+        // Validate host parameter to prevent injection
+        if let host = host {
+            // Basic validation: host should not contain shell metacharacters
+            let invalidChars = CharacterSet(charactersIn: ";|&$`\\\"<>(){}[]")
+            if host.rangeOfCharacter(from: invalidChars) != nil {
+                throw ShellError.sshConnectionFailed
+            }
+        }
+        
         // Determine the actual command to execute
         let actualCommand: String
         if let host = host {
             // SSH execution - build the remote command
             let remoteCommand: String
             if let workingDirectory = workingDirectory {
+                // Build cd command with escaped directory, then execute the user command
                 remoteCommand = "cd '\(shellEscape(workingDirectory))' && \(command)"
             } else {
                 remoteCommand = command
             }
             
             // Wrap the entire remote command in single quotes for SSH
+            // This prevents local shell interpretation while allowing remote execution
             actualCommand = "ssh -o BatchMode=yes -o ConnectTimeout=10 \(host) '\(shellEscape(remoteCommand))'"
         } else {
             // Local execution

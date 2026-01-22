@@ -43,7 +43,7 @@ struct CommandMenuSection: View {
                 Text("No output yet")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(Array(outputPreviewLines.enumerated()), id: \.offset) { _, line in
+                ForEach(Array(outputPreviewLines.enumerated()), id: \.self) { _, line in
                     Text(truncatedOutputLine(line))
                         .font(.system(.caption, design: .monospaced))
                 }

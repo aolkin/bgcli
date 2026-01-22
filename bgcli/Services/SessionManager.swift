@@ -40,6 +40,31 @@ final class SessionManager: ObservableObject {
         let id: UUID
         let task: Task<Void, Never>
     }
+
+    private actor CommandLock {
+        private var isLocked = false
+        private var waiters: [CheckedContinuation<Void, Never>] = []
+
+        func lock() async {
+            if !isLocked {
+                isLocked = true
+                return
+            }
+
+            await withCheckedContinuation { continuation in
+                waiters.append(continuation)
+            }
+        }
+
+        func unlock() {
+            if waiters.isEmpty {
+                isLocked = false
+            } else {
+                let continuation = waiters.removeFirst()
+                continuation.resume()
+            }
+        }
+    }
     
     @Published private(set) var commands: [Command] = []
     @Published private(set) var sessionStates: [String: SessionState] = [:]
@@ -54,6 +79,8 @@ final class SessionManager: ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var restartTasks: [String: RestartTask] = [:]
+    private var commandLocks: [String: CommandLock] = [:]
+    private var inFlightOperations: Set<String> = []
     private var isRefreshing = false
     private var hasRequestedNotificationPermission = false
     
@@ -114,6 +141,8 @@ final class SessionManager: ObservableObject {
         sessionStates[id] = nil
         restartTasks[id]?.task.cancel()
         restartTasks[id] = nil
+        commandLocks[id] = nil
+        inFlightOperations.remove(id)
         try await saveConfig()
     }
     
@@ -127,60 +156,83 @@ final class SessionManager: ObservableObject {
     }
     
     func startSession(commandId: String) async throws {
-        guard let command = command(for: commandId) else {
-            throw SessionManagerError.commandNotFound(commandId)
+        try await withCommandLock(commandId: commandId) {
+            guard let command = command(for: commandId) else {
+                throw SessionManagerError.commandNotFound(commandId)
+            }
+
+            if await TmuxService.isRunning(command) {
+                throw SessionManagerError.sessionAlreadyRunning(commandId)
+            }
+
+            try await TmuxService.startSession(for: command)
+
+            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
+            state.isRunning = true
+            state.lastStartTime = Date()
+            state.consecutiveFailures = 0
+            sessionStates[commandId] = state
         }
-        
-        if await TmuxService.isRunning(command) {
-            throw SessionManagerError.sessionAlreadyRunning(commandId)
-        }
-        
-        try await TmuxService.startSession(for: command)
-        
-        var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-        state.isRunning = true
-        state.lastStartTime = Date()
-        state.consecutiveFailures = 0
-        sessionStates[commandId] = state
     }
     
     func stopSession(commandId: String) async throws {
-        guard let command = command(for: commandId) else {
-            throw SessionManagerError.commandNotFound(commandId)
+        try await withCommandLock(commandId: commandId) {
+            guard let command = command(for: commandId) else {
+                throw SessionManagerError.commandNotFound(commandId)
+            }
+
+            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
+            state.restartPaused = true
+            sessionStates[commandId] = state
+
+            try await TmuxService.killSession(name: command.sessionName, host: command.host)
+
+            state.isRunning = false
+            state.lastExitTime = Date()
+            sessionStates[commandId] = state
         }
-        
-        try await TmuxService.killSession(name: command.sessionName, host: command.host)
-        
-        var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-        state.isRunning = false
-        state.lastExitTime = Date()
-        state.restartPaused = true
-        sessionStates[commandId] = state
     }
     
     func restartSession(commandId: String) async throws {
-        guard let command = command(for: commandId) else {
-            throw SessionManagerError.commandNotFound(commandId)
+        try await withCommandLock(commandId: commandId) {
+            guard let command = command(for: commandId) else {
+                throw SessionManagerError.commandNotFound(commandId)
+            }
+
+            if await TmuxService.isRunning(command) {
+                try await TmuxService.killSession(name: command.sessionName, host: command.host)
+            }
+
+            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
+            state.restartPaused = false
+            sessionStates[commandId] = state
+
+            try await TmuxService.startSession(for: command)
+
+            state.isRunning = true
+            state.lastStartTime = Date()
+            state.consecutiveFailures = 0
+            sessionStates[commandId] = state
         }
-        
-        if await TmuxService.isRunning(command) {
-            try await TmuxService.killSession(name: command.sessionName, host: command.host)
-        }
-        
-        var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-        state.restartPaused = false
-        sessionStates[commandId] = state
-        
-        try await startSession(commandId: commandId)
     }
     
     func resumeAutoRestart(commandId: String) async throws {
-        var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-        state.restartPaused = false
-        state.consecutiveFailures = 0
-        sessionStates[commandId] = state
-        
-        try await startSession(commandId: commandId)
+        try await withCommandLock(commandId: commandId) {
+            guard let command = command(for: commandId) else {
+                throw SessionManagerError.commandNotFound(commandId)
+            }
+
+            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
+            state.restartPaused = false
+            state.consecutiveFailures = 0
+            sessionStates[commandId] = state
+
+            try await TmuxService.startSession(for: command)
+
+            state.isRunning = true
+            state.lastStartTime = Date()
+            sessionStates[commandId] = state
+        }
     }
     
     func refreshAllStatuses() async {
@@ -274,6 +326,7 @@ final class SessionManager: ObservableObject {
     }
 
     private func updateState(for command: Command, runningSessions: Set<String>) async {
+        guard !inFlightOperations.contains(command.id) else { return }
         var state = sessionStates[command.id] ?? SessionState(commandId: command.id)
         let wasRunning = state.isRunning
         let isRunningNow = runningSessions.contains(command.sessionName)
@@ -412,6 +465,34 @@ final class SessionManager: ObservableObject {
     private func clearRestartTask(commandId: String, taskId: UUID) {
         if restartTasks[commandId]?.id == taskId {
             restartTasks[commandId] = nil
+        }
+    }
+
+    private func commandLock(for commandId: String) -> CommandLock {
+        if let existingLock = commandLocks[commandId] {
+            return existingLock
+        }
+        let lock = CommandLock()
+        commandLocks[commandId] = lock
+        return lock
+    }
+
+    private func withCommandLock<T>(
+        commandId: String,
+        operation: @escaping () async throws -> T
+    ) async throws -> T {
+        let lock = commandLock(for: commandId)
+        await lock.lock()
+        inFlightOperations.insert(commandId)
+        do {
+            let result = try await operation()
+            inFlightOperations.remove(commandId)
+            await lock.unlock()
+            return result
+        } catch {
+            inFlightOperations.remove(commandId)
+            await lock.unlock()
+            throw error
         }
     }
 }

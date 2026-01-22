@@ -18,7 +18,6 @@ struct CommandMenuSection: View {
             Divider()
 
             Button("View Output") {
-                // TODO: Hook up output preview
             }
         } label: {
             Label(commandLabel, systemImage: state.statusIcon)
@@ -43,7 +42,6 @@ struct CommandMenuSection: View {
                 }
 
                 Button("Open in Terminal") {
-                    // TODO: Hook up terminal integration
                 }
             } else {
                 Button("Start") {
@@ -69,6 +67,7 @@ struct CommandMenuSection: View {
 
     @EnvironmentObject private var sessionManager: SessionManager
 
+    @MainActor
     private func handleAction(_ action: @escaping () async throws -> Void) async {
         do {
             try await action()

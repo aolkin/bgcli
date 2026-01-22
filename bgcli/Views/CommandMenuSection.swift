@@ -41,10 +41,10 @@ struct CommandMenuSection: View {
         Section {
             if outputPreviewLines.isEmpty {
                 Text("No output yet")
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             } else {
-                ForEach(outputPreviewLines.indices, id: \.self) { index in
-                    Text(truncatedOutputLine(outputPreviewLines[index]))
+                ForEach(Array(outputPreviewLines.enumerated()), id: \.offset) { _, line in
+                    Text(truncatedOutputLine(line))
                         .font(.system(.caption, design: .monospaced))
                 }
             }
@@ -119,7 +119,7 @@ struct CommandMenuSection: View {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         if !pasteboard.setString(text, forType: .string) {
-            sessionManager.lastError = "Failed to copy command output to clipboard"
+            sessionManager.lastError = "Unable to copy command output to clipboard. Please try again."
         }
     }
 }

@@ -1,0 +1,73 @@
+name: Build macOS App
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build macOS app
+      run: |
+        xcodebuild \
+          -project bgcli.xcodeproj \
+          -scheme bgcli \
+          -configuration Release \
+          -derivedDataPath build \
+          -sdk macosx \
+          CODE_SIGNING_ALLOWED=NO \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGN_STYLE=Automatic
+
+    - name: Create app directory
+      run: |
+        mkdir -p "bgcli_build"
+        cp -r build/Release/bgcli.app bgcli_build/
+
+    - name: Create ZIP archive
+      run: |
+        cd bgcli_build
+        zip -r ../bgcli-macos.zip bgcli.app
+        cd ..
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bgcli-macos
+        path: bgcli-macos.zip
+        retention-days: 30
+
+    - name: Comment on PR with artifact download link
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const buildNumber = context.runId;
+
+          const comment = `## ✅ macOS Build Successful
+
+          The macOS app has been built and is ready for testing. You can download the build artifact from the GitHub Actions workflow run.
+
+          **Download:** [bgcli-macos.zip](https://github.com/${{ github.repository }}/actions/runs/${buildNumber})
+
+          **Steps to test:**
+          1. Download \`bgcli-macos.zip\` from the artifacts section
+          2. Unzip the file
+          3. Run the app: \`open bgcli_build/bgcli.app\`
+
+          The app is unsigned and built for testing purposes only.`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

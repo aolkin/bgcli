@@ -11,6 +11,7 @@ import UserNotifications
 enum SessionManagerError: Error, LocalizedError {
     case commandNotFound(String)
     case sessionAlreadyRunning(String)
+    case notificationDenied
     
     var errorDescription: String? {
         switch self {
@@ -18,6 +19,8 @@ enum SessionManagerError: Error, LocalizedError {
             return "Command with ID '\(id)' was not found"
         case .sessionAlreadyRunning(let id):
             return "Session for command '\(id)' is already running"
+        case .notificationDenied:
+            return "Notifications are disabled for bgcli"
         }
     }
 }
@@ -109,6 +112,8 @@ final class SessionManager: ObservableObject {
     func removeCommand(id: String) async throws {
         commands.removeAll { $0.id == id }
         sessionStates[id] = nil
+        restartTasks[id]?.task.cancel()
+        restartTasks[id] = nil
         try await saveConfig()
     }
     
@@ -305,7 +310,8 @@ final class SessionManager: ObservableObject {
         var nextFailures = state.consecutiveFailures
         
         if let lastStart = state.lastStartTime, let lastExit = state.lastExitTime {
-            if lastStart.distance(to: lastExit) > Self.failureResetInterval {
+            let runDuration = max(0, lastExit.timeIntervalSince(lastStart))
+            if runDuration > Self.failureResetInterval {
                 nextFailures = 0
             }
         }
@@ -376,6 +382,8 @@ final class SessionManager: ObservableObject {
             ) { [weak self] granted, error in
                 if let error {
                     self?.recordError(error)
+                } else if !granted {
+                    self?.recordError(SessionManagerError.notificationDenied)
                 }
                 continuation.resume(returning: granted)
             }

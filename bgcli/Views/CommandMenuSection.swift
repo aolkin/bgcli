@@ -43,8 +43,8 @@ struct CommandMenuSection: View {
                 Text("No output yet")
                     .foregroundColor(.secondary)
             } else {
-                ForEach(Array(outputPreviewLines.enumerated()), id: \.offset) { _, line in
-                    Text(truncatedOutputLine(line))
+                ForEach(outputPreviewLines.indices, id: \.self) { index in
+                    Text(truncatedOutputLine(outputPreviewLines[index]))
                         .font(.system(.caption, design: .monospaced))
                 }
             }
@@ -114,6 +114,7 @@ struct CommandMenuSection: View {
     }
 
     private func copyOutputToPasteboard() {
+        guard !state.lastOutput.isEmpty else { return }
         let text = state.lastOutput.joined(separator: "\n")
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()

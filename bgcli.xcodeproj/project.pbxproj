@@ -14,6 +14,9 @@
 		1A00001D000000000000001 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00001E000000000000001 /* AppConfig.swift */; };
 		1A000024000000000000001 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000023000000000000001 /* Shell.swift */; };
 		1A000025000000000000001 /* TmuxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000026000000000000001 /* TmuxService.swift */; };
+		1A000028000000000000001 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000027000000000000001 /* SessionManager.swift */; };
+		1A00002A000000000000001 /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000029000000000000001 /* MenuContentView.swift */; };
+		1A00002C000000000000001 /* CommandMenuSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00002B000000000000001 /* CommandMenuSection.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +29,9 @@
 		1A00001E000000000000001 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		1A000023000000000000001 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
 		1A000026000000000000001 /* TmuxService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxService.swift; sourceTree = "<group>"; };
+		1A000027000000000000001 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
+		1A000029000000000000001 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
+		1A00002B000000000000001 /* CommandMenuSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandMenuSection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +81,7 @@
 			isa = PBXGroup;
 			children = (
 				1A000026000000000000001 /* TmuxService.swift */,
+				1A000027000000000000001 /* SessionManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -82,6 +89,8 @@
 		1A000021000000000000001 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				1A000029000000000000001 /* MenuContentView.swift */,
+				1A00002B000000000000001 /* CommandMenuSection.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -177,6 +186,9 @@
 				1A00001D000000000000001 /* AppConfig.swift in Sources */,
 				1A000024000000000000001 /* Shell.swift in Sources */,
 				1A000025000000000000001 /* TmuxService.swift in Sources */,
+				1A000028000000000000001 /* SessionManager.swift in Sources */,
+				1A00002A000000000000001 /* MenuContentView.swift in Sources */,
+				1A00002C000000000000001 /* CommandMenuSection.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

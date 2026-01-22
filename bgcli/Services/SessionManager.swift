@@ -180,10 +180,9 @@ final class SessionManager: ObservableObject {
 
             try await TmuxService.killSession(name: command.sessionName, host: command.host)
 
-            var updatedState = sessionStates[commandId] ?? state
-            updatedState.isRunning = false
-            updatedState.lastExitTime = Date()
-            sessionStates[commandId] = updatedState
+            state.isRunning = false
+            state.lastExitTime = Date()
+            sessionStates[commandId] = state
         }
     }
     
@@ -498,21 +497,16 @@ final class SessionManager: ObservableObject {
 
     private func withCommandLock<T>(
         commandId: String,
-        operation: @escaping () async throws -> T
+        operation: () async throws -> T
     ) async throws -> T {
         let lock = commandLock(for: commandId)
         await lock.lock()
         inFlightOperations.insert(commandId)
         operationGenerations[commandId, default: 0] += 1
-        do {
-            let result = try await operation()
+        defer {
             inFlightOperations.remove(commandId)
             lock.unlock()
-            return result
-        } catch {
-            inFlightOperations.remove(commandId)
-            lock.unlock()
-            throw error
         }
+        return try await operation()
     }
 }

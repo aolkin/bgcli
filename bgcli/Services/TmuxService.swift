@@ -121,6 +121,19 @@ enum TmuxService {
             throw TmuxError.sessionNotFound(name)
         }
         
+        // Send an interrupt (Ctrl-C) to allow graceful termination via existing sendKeys helper.
+        try? await sendKeys(sessionName: name, keys: "C-c", host: host)
+        
+        // Wait up to 10 seconds for the session to disappear on its own.
+        let start = Date()
+        while Date().timeIntervalSince(start) < 10 {
+            if !(await hasSession(name: name, host: host)) {
+                return
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        }
+        
+        // If it's still there, kill it forcibly.
         let command = "tmux kill-session -t '\(shellEscape(name))'"
         let result = try await Shell.run(command, host: host)
         

@@ -67,9 +67,15 @@ struct CommandMenuSection: View {
                 }
 
                 Button("Open in Terminal") {
+                    Task {
+                        await handleAction {
+                            try await TerminalLauncher.openSession(
+                                sessionName: command.sessionName,
+                                host: command.host
+                            )
+                        }
+                    }
                 }
-                .disabled(true)
-                .help("Terminal integration not available yet")
             } else {
                 Button("Start") {
                     Task { await handleAction { try await sessionManager.startSession(commandId: command.id) } }

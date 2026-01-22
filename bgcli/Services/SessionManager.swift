@@ -435,7 +435,11 @@ final class SessionManager: ObservableObject {
             trigger: nil
         )
         
-        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+        } catch {
+            recordError(error)
+        }
     }
     
     private func requestNotificationAuthorization() async -> Bool {

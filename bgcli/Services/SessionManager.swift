@@ -191,9 +191,10 @@ final class SessionManager: ObservableObject {
 
             try await TmuxService.killSession(name: command.sessionName, host: command.host)
 
-            state.isRunning = false
-            state.lastExitTime = Date()
-            sessionStates[commandId] = state
+            var updatedState = sessionStates[commandId] ?? state
+            updatedState.isRunning = false
+            updatedState.lastExitTime = Date()
+            sessionStates[commandId] = updatedState
         }
     }
     
@@ -213,10 +214,11 @@ final class SessionManager: ObservableObject {
 
             try await TmuxService.startSession(for: command)
 
-            state.isRunning = true
-            state.lastStartTime = Date()
-            state.consecutiveFailures = 0
-            sessionStates[commandId] = state
+            var updatedState = sessionStates[commandId] ?? state
+            updatedState.isRunning = true
+            updatedState.lastStartTime = Date()
+            updatedState.consecutiveFailures = 0
+            sessionStates[commandId] = updatedState
         }
     }
     
@@ -233,9 +235,10 @@ final class SessionManager: ObservableObject {
 
             try await TmuxService.startSession(for: command)
 
-            state.isRunning = true
-            state.lastStartTime = Date()
-            sessionStates[commandId] = state
+            var updatedState = sessionStates[commandId] ?? state
+            updatedState.isRunning = true
+            updatedState.lastStartTime = Date()
+            sessionStates[commandId] = updatedState
         }
     }
     

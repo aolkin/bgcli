@@ -30,6 +30,7 @@ struct MenuContentView: View {
 
         Button("Settings...") {}
             .disabled(true)
+            .help("Settings are not available yet")
 
         Divider()
 

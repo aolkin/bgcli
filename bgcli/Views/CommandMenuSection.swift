@@ -21,6 +21,8 @@ struct CommandMenuSection: View {
 
             Button("View Output") {
             }
+            .disabled(true)
+            .help("Output preview not available yet")
         } label: {
             Label(commandLabel, systemImage: state.statusIcon)
                 .symbolRenderingMode(.hierarchical)
@@ -45,6 +47,8 @@ struct CommandMenuSection: View {
 
                 Button("Open in Terminal") {
                 }
+                .disabled(true)
+                .help("Terminal integration not available yet")
             } else {
                 Button("Start") {
                     Task { await handleAction { try await sessionManager.startSession(commandId: command.id) } }

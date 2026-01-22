@@ -305,7 +305,7 @@ final class SessionManager: ObservableObject {
         var nextFailures = state.consecutiveFailures
         
         if let lastStart = state.lastStartTime, let lastExit = state.lastExitTime {
-            if lastExit.timeIntervalSince(lastStart) > Self.failureResetInterval {
+            if lastStart.distance(to: lastExit) > Self.failureResetInterval {
                 nextFailures = 0
             }
         }

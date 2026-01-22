@@ -45,6 +45,7 @@ final class SessionManager: ObservableObject {
     private let pollInterval: TimeInterval
     private var loadTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
+    private var restartTasks: [String: Task<Void, Never>] = [:]
     private var isRefreshing = false
     private var hasRequestedNotificationPermission = false
     
@@ -59,6 +60,7 @@ final class SessionManager: ObservableObject {
     deinit {
         loadTask?.cancel()
         pollTask?.cancel()
+        restartTasks.values.forEach { $0.cancel() }
     }
     
     var commandsWithState: [CommandWithState] {
@@ -188,33 +190,7 @@ final class SessionManager: ObservableObject {
                 let runningSessions = Set(sessions.map { $0.name })
                 
                 for command in hostCommands {
-                    var state = sessionStates[command.id] ?? SessionState(commandId: command.id)
-                    let wasRunning = state.isRunning
-                    let isRunningNow = runningSessions.contains(command.sessionName)
-                    
-                    if isRunningNow {
-                        state.isRunning = true
-                        if state.lastStartTime == nil {
-                            state.lastStartTime = Date()
-                        }
-                        do {
-                            state.lastOutput = try await TmuxService.captureOutput(
-                                sessionName: command.sessionName,
-                                lines: Self.outputLineCount,
-                                host: command.host
-                            )
-                        } catch {
-                            recordError(error)
-                        }
-                    } else {
-                        state.isRunning = false
-                        if wasRunning {
-                            state.lastExitTime = Date()
-                            handleAutoRestart(for: command, state: &state)
-                        }
-                    }
-                    
-                    sessionStates[command.id] = state
+                    await updateState(for: command, runningSessions: runningSessions)
                 }
             } catch {
                 recordError(error)
@@ -229,33 +205,7 @@ final class SessionManager: ObservableObject {
             let sessions = try await TmuxService.listSessions(host: command.host)
             let runningSessions = Set(sessions.map { $0.name })
             
-            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-            let wasRunning = state.isRunning
-            let isRunningNow = runningSessions.contains(command.sessionName)
-            
-            if isRunningNow {
-                state.isRunning = true
-                if state.lastStartTime == nil {
-                    state.lastStartTime = Date()
-                }
-                do {
-                    state.lastOutput = try await TmuxService.captureOutput(
-                        sessionName: command.sessionName,
-                        lines: Self.outputLineCount,
-                        host: command.host
-                    )
-                } catch {
-                    recordError(error)
-                }
-            } else {
-                state.isRunning = false
-                if wasRunning {
-                    state.lastExitTime = Date()
-                    handleAutoRestart(for: command, state: &state)
-                }
-            }
-            
-            sessionStates[commandId] = state
+            await updateState(for: command, runningSessions: runningSessions)
         } catch {
             recordError(error)
         }
@@ -312,10 +262,39 @@ final class SessionManager: ObservableObject {
             guard let self else { return }
             while !Task.isCancelled {
                 await self.refreshAllStatuses()
-                let delay = UInt64(self.pollInterval * TimeInterval(Self.nanosecondsPerSecond))
-                try? await Task.sleep(nanoseconds: delay)
+                try? await Task.sleep(nanoseconds: self.nanoseconds(for: self.pollInterval))
             }
         }
+    }
+
+    private func updateState(for command: Command, runningSessions: Set<String>) async {
+        var state = sessionStates[command.id] ?? SessionState(commandId: command.id)
+        let wasRunning = state.isRunning
+        let isRunningNow = runningSessions.contains(command.sessionName)
+        
+        if isRunningNow {
+            state.isRunning = true
+            if state.lastStartTime == nil {
+                state.lastStartTime = Date()
+            }
+            do {
+                state.lastOutput = try await TmuxService.captureOutput(
+                    sessionName: command.sessionName,
+                    lines: Self.outputLineCount,
+                    host: command.host
+                )
+            } catch {
+                recordError(error)
+            }
+        } else {
+            state.isRunning = false
+            if wasRunning {
+                state.lastExitTime = Date()
+                handleAutoRestart(for: command, state: &state)
+            }
+        }
+        
+        sessionStates[command.id] = state
     }
     
     private func handleAutoRestart(for command: Command, state: inout SessionState) {
@@ -339,14 +318,16 @@ final class SessionManager: ObservableObject {
         let delaySeconds = max(0, command.autoRestart.retryDelaySeconds)
         let commandId = command.id
         
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(delaySeconds) * Self.nanosecondsPerSecond)
+        restartTasks[commandId]?.cancel()
+        restartTasks[commandId] = Task { [weak self] in
             guard let self else { return }
+            try? await Task.sleep(nanoseconds: self.nanoseconds(for: TimeInterval(delaySeconds)))
             do {
                 try await self.startSession(commandId: commandId)
             } catch {
                 self.recordError(error)
             }
+            self.restartTasks[commandId] = nil
         }
     }
     
@@ -383,5 +364,10 @@ final class SessionManager: ObservableObject {
     
     private func recordError(_ error: Error) {
         lastError = error.localizedDescription
+    }
+    
+    private func nanoseconds(for seconds: TimeInterval) -> UInt64 {
+        let clamped = max(0, seconds)
+        return UInt64(clamped * TimeInterval(Self.nanosecondsPerSecond))
     }
 }

@@ -302,13 +302,16 @@ final class SessionManager: ObservableObject {
         guard command.autoRestart.enabled else { return }
         guard !state.restartPaused else { return }
         
+        var nextFailures = state.consecutiveFailures
+        
         if let lastStart = state.lastStartTime, let lastExit = state.lastExitTime {
             if lastExit.timeIntervalSince(lastStart) > Self.failureResetInterval {
-                state.consecutiveFailures = 0
+                nextFailures = 0
             }
         }
         
-        state.consecutiveFailures += 1
+        nextFailures += 1
+        state.consecutiveFailures = nextFailures
         
         if state.consecutiveFailures >= command.autoRestart.maxRetries {
             state.restartPaused = true
@@ -352,15 +355,27 @@ final class SessionManager: ObservableObject {
     }
     
     private func requestNotificationAuthorization() async -> Bool {
-        guard !hasRequestedNotificationPermission else { return true }
+        let status = await notificationAuthorizationStatus()
+        switch status {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .denied:
+            return false
+        case .notDetermined:
+            break
+        @unknown default:
+            return false
+        }
+        
+        guard !hasRequestedNotificationPermission else { return false }
         hasRequestedNotificationPermission = true
         
         return await withCheckedContinuation { continuation in
             UNUserNotificationCenter.current().requestAuthorization(
                 options: [.alert, .badge, .sound]
-            ) { granted, error in
+            ) { [weak self] granted, error in
                 if let error {
-                    self.recordError(error)
+                    self?.recordError(error)
                 }
                 continuation.resume(returning: granted)
             }
@@ -376,6 +391,14 @@ final class SessionManager: ObservableObject {
         let maxSeconds = TimeInterval(UInt64.max) / TimeInterval(Self.nanosecondsPerSecond)
         let safeSeconds = min(clamped, maxSeconds)
         return UInt64(safeSeconds * TimeInterval(Self.nanosecondsPerSecond))
+    }
+    
+    private func notificationAuthorizationStatus() async -> UNAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                continuation.resume(returning: settings.authorizationStatus)
+            }
+        }
     }
     
     private func clearRestartTask(commandId: String, taskId: UUID) {

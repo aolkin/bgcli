@@ -32,22 +32,6 @@ gh auth login
 
 The app is unsigned, so macOS Gatekeeper may block it initially. The command above removes the quarantine flag that causes this issue.
 
-## Detailed Task Plans
-See `todos/` directory for step-by-step implementation plans:
-
-| File | Description |
-|------|-------------|
-| `00-overview.md` | Dependency graph, parallelization opportunities |
-| `01-project-setup.md` | Xcode project, MenuBarExtra setup |
-| `02-models.md` | Command, SessionState, AppConfig models |
-| `03-shell-utility.md` | Async shell execution (local + SSH) |
-| `04-tmux-service.md` | tmux CLI wrapper |
-| `05-session-manager.md` | Session orchestration, polling, auto-restart |
-| `06-menu-ui.md` | Main menu with command list |
-| `07-output-preview.md` | Output in submenu (SwiftUI) |
-| `08-terminal-integration.md` | Open iTerm2/Terminal.app |
-| `09-error-handling-polish.md` | Edge cases, notifications, first-launch |
-
 ## Key Decisions
 - **macOS 13+** minimum (MenuBarExtra API)
 - **SSH keys only** - no password prompt support

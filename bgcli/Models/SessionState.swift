@@ -16,6 +16,8 @@ struct SessionState: Identifiable {
     var lastStartTime: Date?
     var lastExitTime: Date?
     var restartPaused: Bool
+    var lastError: String?
+    var lastErrorTime: Date?
     
     /// SF Symbol name based on the current state
     var statusIcon: String {
@@ -39,7 +41,9 @@ struct SessionState: Identifiable {
         consecutiveFailures: Int = 0,
         lastStartTime: Date? = nil,
         lastExitTime: Date? = nil,
-        restartPaused: Bool = false
+        restartPaused: Bool = false,
+        lastError: String? = nil,
+        lastErrorTime: Date? = nil
     ) {
         self.commandId = commandId
         self.isRunning = isRunning
@@ -48,5 +52,7 @@ struct SessionState: Identifiable {
         self.lastStartTime = lastStartTime
         self.lastExitTime = lastExitTime
         self.restartPaused = restartPaused
+        self.lastError = lastError
+        self.lastErrorTime = lastErrorTime
     }
 }

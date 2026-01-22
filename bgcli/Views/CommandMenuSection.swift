@@ -22,6 +22,18 @@ struct CommandMenuSection: View {
         Menu {
             outputPreviewSection
 
+            if let error = state.lastError {
+                Section {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
+                    if let errorTime = state.lastErrorTime {
+                        Text(errorTime, style: .relative)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             Divider()
 
             Button("Copy Output") {

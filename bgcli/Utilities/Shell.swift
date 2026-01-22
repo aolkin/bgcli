@@ -112,6 +112,19 @@ enum Shell {
             return false
         }
     }
+
+    static func parseSSHError(_ stderr: String) -> String? {
+        if stderr.contains("Connection refused") {
+            return "Host unreachable (connection refused)"
+        } else if stderr.contains("Permission denied") {
+            return "SSH authentication failed"
+        } else if stderr.contains("Connection timed out") {
+            return "Connection timed out"
+        } else if stderr.contains("Could not resolve hostname") {
+            return "Host not found"
+        }
+        return nil
+    }
     
     static func runLines(
         _ command: String,

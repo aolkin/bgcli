@@ -12,7 +12,8 @@ enum ConfigError: Error, LocalizedError {
     case fileNotReadable
     case invalidJSON(Error)
     case writeFailed(Error)
-    
+    case duplicateCommandIds([String])
+
     var errorDescription: String? {
         switch self {
         case .fileNotReadable:
@@ -21,6 +22,8 @@ enum ConfigError: Error, LocalizedError {
             return "Invalid JSON in config file: \(error.localizedDescription)"
         case .writeFailed(let error):
             return "Failed to write config file: \(error.localizedDescription)"
+        case .duplicateCommandIds(let ids):
+            return "Duplicate command IDs found: \(ids.joined(separator: ", "))"
         }
     }
 }
@@ -69,7 +72,21 @@ struct AppConfig: Codable {
         
         do {
             let decoder = JSONDecoder()
-            return try decoder.decode(AppConfig.self, from: data)
+            let config = try decoder.decode(AppConfig.self, from: data)
+
+            // Validate no duplicate IDs
+            let ids = config.commands.map { $0.id }
+            let uniqueIds = Set(ids)
+            if ids.count != uniqueIds.count {
+                let duplicates = Dictionary(grouping: ids, by: { $0 })
+                    .filter { $0.value.count > 1 }
+                    .keys
+                throw ConfigError.duplicateCommandIds(Array(duplicates))
+            }
+
+            return config
+        } catch let error as ConfigError {
+            throw error
         } catch {
             throw ConfigError.invalidJSON(error)
         }

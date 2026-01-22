@@ -7,6 +7,7 @@
 
 import Foundation
 import UserNotifications
+import AppKit
 
 enum SessionManagerError: Error, LocalizedError {
     case commandNotFound(String)
@@ -70,6 +71,7 @@ final class SessionManager: ObservableObject {
     @Published private(set) var sessionStates: [String: SessionState] = [:]
     @Published var isLoading = false
     @Published var lastError: String?
+    @Published var isTmuxInstalled: Bool = true
     
     private static let outputLineCount = 10
     private static let failureResetInterval: TimeInterval = 30
@@ -292,11 +294,14 @@ final class SessionManager: ObservableObject {
     private func loadInitialConfig() async {
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
             try await loadConfig()
+            await checkTmuxInstalled()
             startPolling()
             await refreshAllStatuses()
+        } catch let error as ConfigError {
+            await handleConfigError(error)
         } catch {
             recordError(error)
         }
@@ -372,13 +377,23 @@ final class SessionManager: ObservableObject {
             throw SessionManagerError.sessionAlreadyRunning(commandId)
         }
 
-        try await TmuxService.startSession(for: command)
+        do {
+            try await TmuxService.startSession(for: command)
 
-        var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-        state.isRunning = true
-        state.lastStartTime = Date()
-        state.consecutiveFailures = 0
-        sessionStates[commandId] = state
+            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
+            state.isRunning = true
+            state.lastStartTime = Date()
+            state.consecutiveFailures = 0
+            state.lastError = nil
+            state.lastErrorTime = nil
+            sessionStates[commandId] = state
+        } catch {
+            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
+            state.lastError = error.localizedDescription
+            state.lastErrorTime = Date()
+            sessionStates[commandId] = state
+            throw error
+        }
     }
     
     private func handleAutoRestart(for command: Command, state: inout SessionState) async {
@@ -474,6 +489,48 @@ final class SessionManager: ObservableObject {
     
     private func recordError(_ error: Error) {
         lastError = error.localizedDescription
+    }
+
+    private func checkTmuxInstalled() async {
+        let exists = await Shell.runQuiet("which tmux")
+        isTmuxInstalled = exists
+    }
+
+    private func handleConfigError(_ error: ConfigError) async {
+        let alert = NSAlert()
+        alert.messageText = "Configuration Error"
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+
+        alert.addButton(withTitle: "Open Config File")
+        alert.addButton(withTitle: "Reset to Default")
+        alert.addButton(withTitle: "Quit")
+
+        let response = alert.runModal()
+
+        switch response {
+        case .alertFirstButtonReturn:
+            NSWorkspace.shared.open(AppConfig.configFilePath)
+        case .alertSecondButtonReturn:
+            await resetConfig()
+        default:
+            NSApplication.shared.terminate(nil)
+        }
+    }
+
+    private func resetConfig() async {
+        // Backup corrupted config
+        let backupPath = AppConfig.configDirectory
+            .appendingPathComponent("config.json.backup.\(Date().timeIntervalSince1970)")
+        try? FileManager.default.copyItem(
+            at: AppConfig.configFilePath,
+            to: backupPath
+        )
+
+        // Create fresh config
+        let defaultConfig = AppConfig.createDefaultConfig()
+        try? defaultConfig.save()
+        try? await loadConfig()
     }
     
     private func nanoseconds(for seconds: TimeInterval) -> UInt64 {

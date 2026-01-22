@@ -13,6 +13,17 @@ struct MenuContentView: View {
 
     var body: some View {
         Group {
+            if !sessionManager.isTmuxInstalled {
+                Section {
+                    Label("tmux not installed", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Button("How to Install") {
+                        NSWorkspace.shared.open(URL(string: "https://github.com/tmux/tmux/wiki/Installing")!)
+                    }
+                }
+                Divider()
+            }
+
             if sessionManager.commandsWithState.isEmpty {
                 // Auto-open settings when no commands exist
                 Color.clear

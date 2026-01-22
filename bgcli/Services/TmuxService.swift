@@ -34,6 +34,10 @@ enum TmuxError: Error, LocalizedError {
 }
 
 enum TmuxService {
+    private static func shellEscape(_ string: String) -> String {
+        return string.replacingOccurrences(of: "'", with: "'\\''")
+    }
+    
     static func listSessions(host: String? = nil) async throws -> [TmuxSession] {
         let command = "tmux list-sessions -F \"#{session_name}\\t#{session_attached}\\t#{session_windows}\""
         
@@ -74,7 +78,7 @@ enum TmuxService {
     }
     
     static func hasSession(name: String, host: String? = nil) async -> Bool {
-        let command = "tmux has-session -t '\(name)'"
+        let command = "tmux has-session -t '\(shellEscape(name))'"
         return await Shell.runQuiet(command, host: host)
     }
     
@@ -89,17 +93,17 @@ enum TmuxService {
             throw TmuxError.sessionAlreadyExists(name)
         }
         
-        var tmuxCommand = "tmux new-session -d -s '\(name)'"
+        var tmuxCommand = "tmux new-session -d -s '\(shellEscape(name))'"
         
         if let workingDirectory = workingDirectory {
-            tmuxCommand += " -c '\(workingDirectory)'"
+            tmuxCommand += " -c '\(shellEscape(workingDirectory))'"
         }
         
         for (key, value) in environment {
-            tmuxCommand += " -e '\(key)=\(value)'"
+            tmuxCommand += " -e '\(shellEscape(key))=\(shellEscape(value))'"
         }
         
-        let escapedCommand = command.replacingOccurrences(of: "'", with: "'\\''")
+        let escapedCommand = shellEscape(command)
         tmuxCommand += " '\(escapedCommand)'"
         
         let result = try await Shell.run(tmuxCommand, host: host)
@@ -117,7 +121,7 @@ enum TmuxService {
             throw TmuxError.sessionNotFound(name)
         }
         
-        let command = "tmux kill-session -t '\(name)'"
+        let command = "tmux kill-session -t '\(shellEscape(name))'"
         let result = try await Shell.run(command, host: host)
         
         if !result.succeeded {
@@ -130,7 +134,7 @@ enum TmuxService {
         lines: Int = 10,
         host: String? = nil
     ) async throws -> [String] {
-        let command = "tmux capture-pane -t '\(sessionName)' -p -S -\(lines)"
+        let command = "tmux capture-pane -t '\(shellEscape(sessionName))' -p -S -\(lines)"
         let result = try await Shell.run(command, host: host)
         
         if !result.succeeded {
@@ -153,8 +157,8 @@ enum TmuxService {
         keys: String,
         host: String? = nil
     ) async throws {
-        let escapedKeys = keys.replacingOccurrences(of: "'", with: "'\\''")
-        let command = "tmux send-keys -t '\(sessionName)' '\(escapedKeys)'"
+        let escapedKeys = shellEscape(keys)
+        let command = "tmux send-keys -t '\(shellEscape(sessionName))' '\(escapedKeys)'"
         let result = try await Shell.run(command, host: host)
         
         if !result.succeeded {

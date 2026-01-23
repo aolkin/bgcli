@@ -112,7 +112,7 @@ enum TerminalLauncher {
             throw TerminalLauncherError.scriptExecutionFailed("Unable to compile AppleScript")
         }
         var error: NSDictionary?
-        let result = appleScript.executeAndReturnError(&error)
+        let _ = appleScript.executeAndReturnError(&error)
         if let error = error {
             let message = error[NSAppleScript.errorMessage] as? String ?? "Unknown AppleScript error"
             throw TerminalLauncherError.scriptExecutionFailed(message)

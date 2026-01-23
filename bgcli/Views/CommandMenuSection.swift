@@ -20,6 +20,19 @@ struct CommandMenuSection: View {
 
     var body: some View {
         Menu {
+            commandStateActions
+
+            Button("Copy Output") {
+                copyOutputToPasteboard()
+            }
+            .disabled(state.lastOutput.isEmpty)
+
+            Button("View Full Log") {
+                viewFullLog()
+            }
+
+            Divider()
+
             outputPreviewSection
 
             if let error = state.lastError {
@@ -34,14 +47,18 @@ struct CommandMenuSection: View {
                 }
             }
 
-            Divider()
-
-            Button("Copy Output") {
-                copyOutputToPasteboard()
+            if state.consecutiveFailures > 0 {
+                Section {
+                    if state.restartPaused {
+                        Label("Auto-restart paused after \(state.consecutiveFailures) failures", systemImage: "pause.circle")
+                            .foregroundStyle(.yellow)
+                    } else {
+                        Label("Failures: \(state.consecutiveFailures) / \(command.autoRestart.maxRetries)", systemImage: "arrow.clockwise")
+                            .foregroundStyle(.orange)
+                            .font(.caption)
+                    }
+                }
             }
-            .disabled(state.lastOutput.isEmpty)
-
-            commandStateActions
         } label: {
             Label(commandLabel, systemImage: state.statusIcon)
                 .symbolRenderingMode(.hierarchical)
@@ -67,19 +84,25 @@ struct CommandMenuSection: View {
         Group {
             if state.restartPaused {
                 Button("Resume & Start") {
-                    Task { await handleAction { try await sessionManager.resumeAutoRestart(commandId: command.id) } }
+                    Task { @MainActor in
+                        await handleAction { try await sessionManager.resumeAutoRestart(commandId: command.id) }
+                    }
                 }
             } else if state.isRunning {
                 Button("Stop") {
-                    Task { await handleAction { try await sessionManager.stopSession(commandId: command.id) } }
+                    Task { @MainActor in
+                        await handleAction { try await sessionManager.stopSession(commandId: command.id) }
+                    }
                 }
 
                 Button("Restart") {
-                    Task { await handleAction { try await sessionManager.restartSession(commandId: command.id) } }
+                    Task { @MainActor in
+                        await handleAction { try await sessionManager.restartSession(commandId: command.id) }
+                    }
                 }
 
                 Button("Open in Terminal") {
-                    Task {
+                    Task { @MainActor in
                         await handleAction {
                             try await TerminalLauncher.openSession(
                                 sessionName: command.sessionName,
@@ -90,7 +113,9 @@ struct CommandMenuSection: View {
                 }
             } else {
                 Button("Start") {
-                    Task { await handleAction { try await sessionManager.startSession(commandId: command.id) } }
+                    Task { @MainActor in
+                        await handleAction { try await sessionManager.startSession(commandId: command.id) }
+                    }
                 }
             }
         }
@@ -139,6 +164,18 @@ struct CommandMenuSection: View {
         if !pasteboard.setString(text, forType: .string) {
             sessionManager.lastError = "Unable to copy command output to clipboard. Please try again."
         }
+    }
+
+    private func viewFullLog() {
+        let logFileURL = URL(fileURLWithPath: command.logFilePath)
+
+        // Ensure the log file exists, create empty if it doesn't
+        if !FileManager.default.fileExists(atPath: command.logFilePath) {
+            FileManager.default.createFile(atPath: command.logFilePath, contents: Data("Log file created.\n".utf8))
+        }
+
+        // Open the log file in the default text editor
+        NSWorkspace.shared.open(logFileURL)
     }
 }
 

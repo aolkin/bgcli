@@ -39,38 +39,38 @@ enum TmuxService {
     }
     
     static func listSessions(host: String? = nil) async throws -> [TmuxSession] {
-        let command = "tmux list-sessions -F \"#{session_name}\\t#{session_attached}\\t#{session_windows}\""
-        
+        let command = "tmux list-sessions -F \"#{session_name}|#{session_attached}|#{session_windows}\""
+
         do {
             let result = try await Shell.run(command, host: host)
-            
+
             if result.exitCode != 0 {
-                if result.stderr.contains("no server running") || 
+                if result.stderr.contains("no server running") ||
                    result.stderr.contains("failed to connect to server") {
                     return []
                 }
                 throw TmuxError.commandFailed(result.output, result.exitCode)
             }
-            
+
             let sessions = result.stdout
                 .split(separator: "\n")
                 .compactMap { line -> TmuxSession? in
-                    let parts = line.split(separator: "\t")
+                    let parts = line.split(separator: "|")
                     guard parts.count == 3 else { return nil }
-                    
+
                     let name = String(parts[0])
                     guard name.hasPrefix("bgcli-") else { return nil }
-                    
+
                     let isAttached = String(parts[1]) == "1"
                     let windowCount = Int(parts[2]) ?? 0
-                    
+
                     return TmuxSession(
                         name: name,
                         isAttached: isAttached,
                         windowCount: windowCount
                     )
                 }
-            
+
             return sessions
         } catch ShellError.processLaunchFailed {
             throw TmuxError.tmuxNotInstalled
@@ -87,27 +87,68 @@ enum TmuxService {
         command: String,
         workingDirectory: String?,
         environment: [String: String],
-        host: String? = nil
+        host: String? = nil,
+        logFilePath: String? = nil
     ) async throws {
         if await hasSession(name: name, host: host) {
             throw TmuxError.sessionAlreadyExists(name)
         }
-        
+
+        // Create log directory and clear old log file
+        if let logFilePath = logFilePath {
+            let createLogDir = "mkdir -p \"$(dirname '\(shellEscape(logFilePath))')\" && rm -f '\(shellEscape(logFilePath))' && touch '\(shellEscape(logFilePath))'"
+            _ = try? await Shell.run(createLogDir, host: host)
+        }
+
         var tmuxCommand = "tmux new-session -d -s '\(shellEscape(name))'"
-        
+
         if let workingDirectory = workingDirectory {
             tmuxCommand += " -c '\(shellEscape(workingDirectory))'"
         }
-        
-        for (key, value) in environment {
-            tmuxCommand += " -e '\(shellEscape(key))=\(shellEscape(value))'"
+
+        // Build the command to run inside tmux
+        // Run it in a login shell to get user's PATH and environment
+        let finalCommand: String
+
+        if environment.isEmpty {
+            // No environment variables to set, just run in login shell
+            let escapedForZsh = command.replacingOccurrences(of: "'", with: "'\\''")
+            finalCommand = "zsh -l -c '\(escapedForZsh)'"
+        } else {
+            // Build export statements for environment variables
+            var innerShellCommand = ""
+
+            for (key, value) in environment {
+                // Escape single quotes in the value for use within single quotes
+                let escapedValue = value.replacingOccurrences(of: "'", with: "'\\''")
+
+                // Special handling for PATH: prepend to existing PATH rather than replace
+                if key == "PATH" {
+                    // Use $ which will be evaluated in the inner shell
+                    innerShellCommand += "export PATH='\(escapedValue)':$PATH; "
+                } else {
+                    innerShellCommand += "export \(key)='\(escapedValue)'; "
+                }
+            }
+
+            innerShellCommand += command
+
+            // Escape the inner command for the zsh -l -c '...' wrapper
+            let escapedForZsh = innerShellCommand.replacingOccurrences(of: "'", with: "'\\''")
+            finalCommand = "zsh -l -c '\(escapedForZsh)'"
         }
-        
-        let escapedCommand = shellEscape(command)
+
+        let escapedCommand = shellEscape(finalCommand)
         tmuxCommand += " '\(escapedCommand)'"
-        
+
+        // Chain pipe-pane command atomically to capture output from the very beginning
+        // Using \; to chain tmux commands in a single invocation
+        if let logFilePath = logFilePath {
+            tmuxCommand += " \\; pipe-pane -t '\(shellEscape(name))' -o 'cat >> \"\(shellEscape(logFilePath))\"'"
+        }
+
         let result = try await Shell.run(tmuxCommand, host: host)
-        
+
         if !result.succeeded {
             if result.stderr.contains("not found") || result.stderr.contains("command not found") {
                 throw TmuxError.tmuxNotInstalled
@@ -179,16 +220,38 @@ enum TmuxService {
         }
     }
     
+    static func readLogFile(path: String, lines: Int? = nil, host: String? = nil) async throws -> [String] {
+        let readCommand: String
+        if let lines = lines {
+            readCommand = "tail -n \(lines) '\(shellEscape(path))' 2>/dev/null || echo ''"
+        } else {
+            readCommand = "cat '\(shellEscape(path))' 2>/dev/null || echo ''"
+        }
+
+        let result = try await Shell.run(readCommand, host: host)
+
+        var outputLines = result.stdout
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { String($0) }
+
+        while outputLines.last?.isEmpty == true {
+            outputLines.removeLast()
+        }
+
+        return outputLines
+    }
+
     static func startSession(for command: Command) async throws {
         try await startSession(
             name: command.sessionName,
             command: command.command,
             workingDirectory: command.workingDirectory,
             environment: command.env,
-            host: command.host
+            host: command.host,
+            logFilePath: command.logFilePath
         )
     }
-    
+
     static func isRunning(_ command: Command) async -> Bool {
         await hasSession(name: command.sessionName, host: command.host)
     }

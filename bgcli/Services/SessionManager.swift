@@ -55,6 +55,8 @@ final class SessionManager: ObservableObject {
             await withCheckedContinuation { continuation in
                 waiters.append(continuation)
             }
+            // When resumed, we now have the lock
+            isLocked = true
         }
 
         func unlock() {
@@ -62,6 +64,7 @@ final class SessionManager: ObservableObject {
                 isLocked = false
             } else {
                 let continuation = waiters.removeFirst()
+                // The resumed waiter will acquire the lock when it wakes up
                 continuation.resume()
             }
         }
@@ -89,8 +92,8 @@ final class SessionManager: ObservableObject {
     
     init(pollInterval: TimeInterval = 3.0) {
         self.pollInterval = pollInterval
-        
-        loadTask = Task { [weak self] in
+
+        loadTask = Task { @MainActor [weak self] in
             await self?.loadInitialConfig()
         }
     }
@@ -159,12 +162,12 @@ final class SessionManager: ObservableObject {
         try await saveConfig()
     }
     
-    func startSession(commandId: String) async throws {
+    func startSession(commandId: String, resetFailureCount: Bool = true) async throws {
         try await withCommandLock(commandId: commandId) {
             guard let command = command(for: commandId) else {
                 throw SessionManagerError.commandNotFound(commandId)
             }
-            try await startSessionLocked(commandId: commandId, command: command)
+            try await startSessionLocked(commandId: commandId, command: command, resetFailureCount: resetFailureCount)
         }
     }
     
@@ -207,7 +210,7 @@ final class SessionManager: ObservableObject {
             state.restartPaused = false
             sessionStates[commandId] = state
 
-            try await startSessionLocked(commandId: commandId, command: command)
+            try await startSessionLocked(commandId: commandId, command: command, resetFailureCount: true)
         }
     }
     
@@ -219,10 +222,9 @@ final class SessionManager: ObservableObject {
 
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
             state.restartPaused = false
-            state.consecutiveFailures = 0
             sessionStates[commandId] = state
 
-            try await startSessionLocked(commandId: commandId, command: command)
+            try await startSessionLocked(commandId: commandId, command: command, resetFailureCount: true)
         }
     }
     
@@ -323,11 +325,12 @@ final class SessionManager: ObservableObject {
     
     private func startPolling() {
         pollTask?.cancel()
-        pollTask = Task { [weak self] in
+        pollTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            let pollInterval = self.pollInterval
             while !Task.isCancelled {
                 await self.refreshAllStatuses()
-                try? await Task.sleep(nanoseconds: self.nanoseconds(for: self.pollInterval))
+                try? await Task.sleep(nanoseconds: self.nanoseconds(for: pollInterval))
             }
         }
     }
@@ -346,33 +349,54 @@ final class SessionManager: ObservableObject {
         var state = sessionStates[command.id] ?? SessionState(commandId: command.id)
         let wasRunning = state.isRunning
         let isRunningNow = runningSessions.contains(command.sessionName)
-        
+
         if isRunningNow {
             state.isRunning = true
             if state.lastStartTime == nil {
                 state.lastStartTime = Date()
             }
+            // Read from log file for persistent output
             do {
-                state.lastOutput = try await TmuxService.captureOutput(
-                    sessionName: command.sessionName,
+                state.lastOutput = try await TmuxService.readLogFile(
+                    path: command.logFilePath,
                     lines: Self.outputLineCount,
                     host: command.host
                 )
             } catch {
-                recordError(error)
+                // Fallback to tmux capture if log file read fails
+                do {
+                    state.lastOutput = try await TmuxService.captureOutput(
+                        sessionName: command.sessionName,
+                        lines: Self.outputLineCount,
+                        host: command.host
+                    )
+                } catch {
+                    recordError(error)
+                }
             }
         } else {
             state.isRunning = false
             if wasRunning {
                 state.lastExitTime = Date()
+                // Capture final output from log file before auto-restarting
+                do {
+                    let finalOutput = try await TmuxService.readLogFile(
+                        path: command.logFilePath,
+                        lines: Self.outputLineCount,
+                        host: command.host
+                    )
+                    state.lastOutput = finalOutput
+                } catch {
+                    // Silently ignore log read errors
+                }
                 await handleAutoRestart(for: command, state: &state)
             }
         }
-        
+
         sessionStates[command.id] = state
     }
 
-    private func startSessionLocked(commandId: String, command: Command) async throws {
+    private func startSessionLocked(commandId: String, command: Command, resetFailureCount: Bool) async throws {
         if await TmuxService.isRunning(command) {
             throw SessionManagerError.sessionAlreadyRunning(commandId)
         }
@@ -383,7 +407,10 @@ final class SessionManager: ObservableObject {
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
             state.isRunning = true
             state.lastStartTime = Date()
-            state.consecutiveFailures = 0
+            // Only reset failure counter on manual start, not on auto-restart
+            if resetFailureCount {
+                state.consecutiveFailures = 0
+            }
             state.lastError = nil
             state.lastErrorTime = nil
             sessionStates[commandId] = state
@@ -392,44 +419,70 @@ final class SessionManager: ObservableObject {
             state.lastError = error.localizedDescription
             state.lastErrorTime = Date()
             sessionStates[commandId] = state
+            await sendStartupFailureNotification(for: command, error: error)
             throw error
         }
     }
     
     private func handleAutoRestart(for command: Command, state: inout SessionState) async {
-        guard command.autoRestart.enabled else { return }
-        guard !state.restartPaused else { return }
-        
+        guard command.autoRestart.enabled else {
+            // Session crashed but auto-restart is disabled
+            await sendCrashNotification(for: command)
+            return
+        }
+        guard !state.restartPaused else {
+            return
+        }
+
         var nextFailures = state.consecutiveFailures
-        
+
         if let lastStart = state.lastStartTime, let lastExit = state.lastExitTime {
             let runDuration = max(0, lastExit.timeIntervalSince(lastStart))
             if runDuration > Self.failureResetInterval {
                 nextFailures = 0
             }
         }
-        
+
         nextFailures += 1
         state.consecutiveFailures = nextFailures
-        
+
         if state.consecutiveFailures >= command.autoRestart.maxRetries {
             state.restartPaused = true
             await sendFailureNotification(for: command, failures: state.consecutiveFailures)
             return
         }
-        
+
+        // Send notification for first crash to inform user auto-restart is happening
+        if state.consecutiveFailures == 1 {
+            await sendCrashNotification(for: command)
+        }
+
         let delaySeconds = max(0, command.autoRestart.retryDelaySeconds)
         let commandId = command.id
-        
+
         restartTasks[commandId]?.task.cancel()
         let taskId = UUID()
-        let task = Task { [weak self] in
+        let task = Task { @MainActor [weak self] in
             guard let self else { return }
-            try? await Task.sleep(nanoseconds: self.nanoseconds(for: TimeInterval(delaySeconds)))
+            let sleepDuration = self.nanoseconds(for: TimeInterval(delaySeconds))
+            try? await Task.sleep(nanoseconds: sleepDuration)
+
+            // Clean up any dead session before attempting restart
+            if let command = self.command(for: commandId) {
+                if await TmuxService.hasSession(name: command.sessionName, host: command.host) {
+                    try? await TmuxService.killSession(name: command.sessionName, host: command.host)
+                }
+            }
+
             do {
-                try await self.startSession(commandId: commandId)
+                try await self.startSession(commandId: commandId, resetFailureCount: false)
             } catch {
                 self.recordError(error)
+                // Update failure state to prevent infinite restart attempts
+                var state = self.sessionStates[commandId] ?? SessionState(commandId: commandId)
+                state.lastError = error.localizedDescription
+                state.lastErrorTime = Date()
+                self.sessionStates[commandId] = state
             }
             self.clearRestartTask(commandId: commandId, taskId: taskId)
         }
@@ -439,17 +492,65 @@ final class SessionManager: ObservableObject {
     private func sendFailureNotification(for command: Command, failures: Int) async {
         let isAuthorized = await requestNotificationAuthorization()
         guard isAuthorized else { return }
-        
+
         let content = UNMutableNotificationContent()
         content.title = "bgcli: Session Failed"
         content.body = "\(command.name) has failed \(failures) times and auto-restart has been paused."
-        
+
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,
             content: content,
             trigger: nil
         )
-        
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+        } catch {
+            recordError(error)
+        }
+    }
+
+    private func sendStartupFailureNotification(for command: Command, error: Error) async {
+        let isAuthorized = await requestNotificationAuthorization()
+        guard isAuthorized else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "bgcli: Failed to Start"
+        content.body = "\(command.name) failed to start: \(error.localizedDescription)"
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+        } catch {
+            recordError(error)
+        }
+    }
+
+    private func sendCrashNotification(for command: Command) async {
+        let isAuthorized = await requestNotificationAuthorization()
+        guard isAuthorized else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "bgcli: Session Crashed"
+        let body: String
+        if command.autoRestart.enabled {
+            body = "\(command.name) has stopped unexpectedly. Auto-restarting in \(command.autoRestart.retryDelaySeconds)s..."
+        } else {
+            body = "\(command.name) has stopped unexpectedly."
+        }
+        content.body = body
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
         do {
             try await UNUserNotificationCenter.current().add(request)
         } catch {
@@ -476,11 +577,15 @@ final class SessionManager: ObservableObject {
         return await withCheckedContinuation { continuation in
             UNUserNotificationCenter.current().requestAuthorization(
                 options: [.alert, .badge, .sound]
-            ) { [weak self] granted, error in
+            ) { granted, error in
                 if let error = error {
-                    Task { await MainActor.run { self?.recordError(error) } }
+                    Task { @MainActor [weak self] in
+                        self?.recordError(error)
+                    }
                 } else if !granted {
-                    Task { await MainActor.run { self?.recordError(SessionManagerError.notificationDenied) } }
+                    Task { @MainActor [weak self] in
+                        self?.recordError(SessionManagerError.notificationDenied)
+                    }
                 }
                 continuation.resume(returning: granted)
             }
@@ -492,8 +597,28 @@ final class SessionManager: ObservableObject {
     }
 
     private func checkTmuxInstalled() async {
-        let exists = await Shell.runQuiet("which tmux")
-        isTmuxInstalled = exists
+        // Try which first (will now use augmented PATH)
+        if await Shell.runQuiet("which tmux") {
+            isTmuxInstalled = true
+            return
+        }
+
+        // Fallback: check common installation paths directly
+        let commonPaths = [
+            "/opt/homebrew/bin/tmux",  // Apple Silicon Homebrew
+            "/usr/local/bin/tmux",     // Intel Mac Homebrew
+            "/usr/bin/tmux"            // System installation
+        ]
+
+        for path in commonPaths {
+            if await Shell.runQuiet("test -x '\(path)'") {
+                isTmuxInstalled = true
+                print("[SessionManager] Found tmux at: \(path)")
+                return
+            }
+        }
+
+        isTmuxInstalled = false
     }
 
     private func handleConfigError(_ error: ConfigError) async {
@@ -571,10 +696,16 @@ final class SessionManager: ObservableObject {
         await lock.lock()
         inFlightOperations.insert(commandId)
         operationGenerations[commandId, default: 0] += 1
-        defer {
+
+        do {
+            let result = try await operation()
             inFlightOperations.remove(commandId)
-            Task { await lock.unlock() }
+            await lock.unlock()
+            return result
+        } catch {
+            inFlightOperations.remove(commandId)
+            await lock.unlock()
+            throw error
         }
-        return try await operation()
     }
 }

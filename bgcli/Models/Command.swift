@@ -34,7 +34,14 @@ struct Command: Codable, Identifiable, Equatable {
     var sessionName: String {
         "bgcli-\(id)"
     }
-    
+
+    /// Returns the log file path for this command's output
+    var logFilePath: String {
+        let logsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/bgcli/logs")
+        return logsDir.appendingPathComponent("\(id).log").path
+    }
+
     /// Returns true if this command should be executed on a remote host
     var isRemote: Bool {
         host != nil

@@ -61,15 +61,30 @@ enum Shell {
         
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()
-            
+
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
             process.arguments = ["-c", actualCommand]
-            
+
             if let workingDirectory = workingDirectory, host == nil {
                 process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory)
             }
-            
+
             var processEnvironment = ProcessInfo.processInfo.environment
+
+            // Add Homebrew paths as fallback in case shell config doesn't include them
+            let homebrewPaths = [
+                "/opt/homebrew/bin",      // Apple Silicon
+                "/opt/homebrew/sbin",
+                "/usr/local/bin",         // Intel Mac
+                "/usr/local/sbin"
+            ]
+
+            let currentPath = processEnvironment["PATH"] ?? ""
+            let pathComponents = currentPath.split(separator: ":").map(String.init)
+            var newPathComponents = homebrewPaths.filter { !pathComponents.contains($0) }
+            newPathComponents.append(contentsOf: pathComponents)
+            processEnvironment["PATH"] = newPathComponents.joined(separator: ":")
+
             if let environment = environment {
                 processEnvironment.merge(environment) { _, new in new }
             }

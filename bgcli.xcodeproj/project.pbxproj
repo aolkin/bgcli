@@ -13,11 +13,11 @@
 		1A00001B000000000000001 /* SessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00001C000000000000001 /* SessionState.swift */; };
 		1A00001D000000000000001 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00001E000000000000001 /* AppConfig.swift */; };
 		1A000024000000000000001 /* Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000023000000000000001 /* Shell.swift */; };
-		1A00002D000000000000001 /* TerminalLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00002E000000000000001 /* TerminalLauncher.swift */; };
 		1A000025000000000000001 /* TmuxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000026000000000000001 /* TmuxService.swift */; };
 		1A000028000000000000001 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000027000000000000001 /* SessionManager.swift */; };
 		1A00002A000000000000001 /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000029000000000000001 /* MenuContentView.swift */; };
 		1A00002C000000000000001 /* CommandMenuSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00002B000000000000001 /* CommandMenuSection.swift */; };
+		1A00002D000000000000001 /* TerminalLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00002E000000000000001 /* TerminalLauncher.swift */; };
 		93ECA6ED2F22333E003C9DD5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93ECA6EC2F22333E003C9DD5 /* SettingsView.swift */; };
 		93ECA6EE2F22333E003C9DD5 /* CommandFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93ECA6EB2F22333E003C9DD5 /* CommandFormView.swift */; };
 /* End PBXBuildFile section */
@@ -31,11 +31,12 @@
 		1A00001C000000000000001 /* SessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionState.swift; sourceTree = "<group>"; };
 		1A00001E000000000000001 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		1A000023000000000000001 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shell.swift; sourceTree = "<group>"; };
-		1A00002E000000000000001 /* TerminalLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLauncher.swift; sourceTree = "<group>"; };
 		1A000026000000000000001 /* TmuxService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxService.swift; sourceTree = "<group>"; };
 		1A000027000000000000001 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		1A000029000000000000001 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 		1A00002B000000000000001 /* CommandMenuSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandMenuSection.swift; sourceTree = "<group>"; };
+		1A00002E000000000000001 /* TerminalLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLauncher.swift; sourceTree = "<group>"; };
+		1A00002F000000000000001 /* bgcli.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = bgcli.entitlements; sourceTree = "<group>"; };
 		93ECA6EB2F22333E003C9DD5 /* CommandFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandFormView.swift; sourceTree = "<group>"; };
 		93ECA6EC2F22333E003C9DD5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -69,6 +70,7 @@
 				1A000022000000000000001 /* Utilities */,
 				1A000004000000000000001 /* Assets.xcassets */,
 				1A000006000000000000001 /* Info.plist */,
+				1A00002F000000000000001 /* bgcli.entitlements */,
 			);
 			path = bgcli;
 			sourceTree = "<group>";
@@ -330,15 +332,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_ENTITLEMENTS = bgcli/bgcli.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 6R6A5BF6X9;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = bgcli/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -357,15 +360,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_ENTITLEMENTS = bgcli/bgcli.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 6R6A5BF6X9;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = bgcli/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

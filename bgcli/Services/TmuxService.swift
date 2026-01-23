@@ -41,40 +41,29 @@ enum TmuxService {
     static func listSessions(host: String? = nil) async throws -> [TmuxSession] {
         let command = "tmux list-sessions -F \"#{session_name}|#{session_attached}|#{session_windows}\""
 
-        print("[TmuxService] listSessions command: \(command)")
         do {
             let result = try await Shell.run(command, host: host)
-            print("[TmuxService] listSessions result: exitCode=\(result.exitCode), stdout=\(result.stdout)")
-            
+
             if result.exitCode != 0 {
-                if result.stderr.contains("no server running") || 
+                if result.stderr.contains("no server running") ||
                    result.stderr.contains("failed to connect to server") {
                     return []
                 }
                 throw TmuxError.commandFailed(result.output, result.exitCode)
             }
-            
+
             let sessions = result.stdout
                 .split(separator: "\n")
                 .compactMap { line -> TmuxSession? in
                     let parts = line.split(separator: "|")
-                    print("[TmuxService] Parsing line: '\(line)', parts count: \(parts.count)")
-                    guard parts.count == 3 else {
-                        print("[TmuxService] Skipping line - wrong part count")
-                        return nil
-                    }
+                    guard parts.count == 3 else { return nil }
 
                     let name = String(parts[0])
-                    print("[TmuxService] Session name: '\(name)', hasPrefix: \(name.hasPrefix("bgcli-"))")
-                    guard name.hasPrefix("bgcli-") else {
-                        print("[TmuxService] Skipping session - not bgcli session")
-                        return nil
-                    }
+                    guard name.hasPrefix("bgcli-") else { return nil }
 
                     let isAttached = String(parts[1]) == "1"
                     let windowCount = Int(parts[2]) ?? 0
 
-                    print("[TmuxService] Found bgcli session: \(name)")
                     return TmuxSession(
                         name: name,
                         isAttached: isAttached,
@@ -82,7 +71,6 @@ enum TmuxService {
                     )
                 }
 
-            print("[TmuxService] Total bgcli sessions found: \(sessions.count)")
             return sessions
         } catch ShellError.processLaunchFailed {
             throw TmuxError.tmuxNotInstalled
@@ -91,9 +79,7 @@ enum TmuxService {
     
     static func hasSession(name: String, host: String? = nil) async -> Bool {
         let command = "tmux has-session -t '\(shellEscape(name))'"
-        let result = await Shell.runQuiet(command, host: host)
-        print("[TmuxService] hasSession(\(name)): \(result)")
-        return result
+        return await Shell.runQuiet(command, host: host)
     }
     
     static func startSession(
@@ -104,13 +90,7 @@ enum TmuxService {
         host: String? = nil,
         logFilePath: String? = nil
     ) async throws {
-        print("[TmuxService] startSession called for: \(name)")
-        print("[TmuxService] Command: \(command)")
-        print("[TmuxService] Host: \(host ?? "local")")
-        print("[TmuxService] Log file: \(logFilePath ?? "none")")
-
         if await hasSession(name: name, host: host) {
-            print("[TmuxService] Session already exists: \(name)")
             throw TmuxError.sessionAlreadyExists(name)
         }
 
@@ -156,11 +136,8 @@ enum TmuxService {
             // Escape the inner command for the zsh -l -c '...' wrapper
             let escapedForZsh = innerShellCommand.replacingOccurrences(of: "'", with: "'\\''")
             finalCommand = "zsh -l -c '\(escapedForZsh)'"
-
-            print("[TmuxService] Inner shell command: \(innerShellCommand)")
         }
 
-        print("[TmuxService] Final command for tmux: \(finalCommand)")
         let escapedCommand = shellEscape(finalCommand)
         tmuxCommand += " '\(escapedCommand)'"
 
@@ -168,23 +145,16 @@ enum TmuxService {
         // Using \; to chain tmux commands in a single invocation
         if let logFilePath = logFilePath {
             tmuxCommand += " \\; pipe-pane -t '\(shellEscape(name))' -o 'cat >> \"\(shellEscape(logFilePath))\"'"
-            print("[TmuxService] Logging enabled to: \(logFilePath)")
         }
 
-        print("[TmuxService] Running tmux command: \(tmuxCommand)")
         let result = try await Shell.run(tmuxCommand, host: host)
 
         if !result.succeeded {
-            print("[TmuxService] Command failed with exit code \(result.exitCode)")
-            print("[TmuxService] stdout: \(result.stdout)")
-            print("[TmuxService] stderr: \(result.stderr)")
             if result.stderr.contains("not found") || result.stderr.contains("command not found") {
                 throw TmuxError.tmuxNotInstalled
             }
             throw TmuxError.commandFailed(result.output, result.exitCode)
         }
-
-        print("[TmuxService] Session started successfully: \(name)")
     }
     
     static func killSession(name: String, host: String? = nil) async throws {

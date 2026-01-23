@@ -350,8 +350,6 @@ final class SessionManager: ObservableObject {
         let wasRunning = state.isRunning
         let isRunningNow = runningSessions.contains(command.sessionName)
 
-        print("[SessionManager] updateState for \(command.id): sessionName='\(command.sessionName)', isRunningNow=\(isRunningNow), runningSessions=\(runningSessions)")
-
         if isRunningNow {
             state.isRunning = true
             if state.lastStartTime == nil {
@@ -381,7 +379,6 @@ final class SessionManager: ObservableObject {
             if wasRunning {
                 state.lastExitTime = Date()
                 // Capture final output from log file before auto-restarting
-                print("[SessionManager] Session exited for \(command.id), capturing final output")
                 do {
                     let finalOutput = try await TmuxService.readLogFile(
                         path: command.logFilePath,
@@ -389,9 +386,8 @@ final class SessionManager: ObservableObject {
                         host: command.host
                     )
                     state.lastOutput = finalOutput
-                    print("[SessionManager] Captured \(finalOutput.count) lines of final output")
                 } catch {
-                    print("[SessionManager] Failed to capture final output: \(error.localizedDescription)")
+                    // Silently ignore log read errors
                 }
                 await handleAutoRestart(for: command, state: &state)
             }
@@ -401,32 +397,24 @@ final class SessionManager: ObservableObject {
     }
 
     private func startSessionLocked(commandId: String, command: Command, resetFailureCount: Bool) async throws {
-        print("[SessionManager] Starting session for command: \(commandId), resetFailureCount: \(resetFailureCount)")
-
         if await TmuxService.isRunning(command) {
-            print("[SessionManager] Session already running for command: \(commandId)")
             throw SessionManagerError.sessionAlreadyRunning(commandId)
         }
 
         do {
-            print("[SessionManager] Calling TmuxService.startSession for: \(commandId)")
             try await TmuxService.startSession(for: command)
-            print("[SessionManager] TmuxService.startSession succeeded for: \(commandId)")
 
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
             state.isRunning = true
             state.lastStartTime = Date()
             // Only reset failure counter on manual start, not on auto-restart
             if resetFailureCount {
-                print("[SessionManager] Resetting failure counter for \(commandId)")
                 state.consecutiveFailures = 0
             }
             state.lastError = nil
             state.lastErrorTime = nil
             sessionStates[commandId] = state
-            print("[SessionManager] Updated state for \(commandId): isRunning=true, failures=\(state.consecutiveFailures)")
         } catch {
-            print("[SessionManager] Error starting session for \(commandId): \(error.localizedDescription)")
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
             state.lastError = error.localizedDescription
             state.lastErrorTime = Date()
@@ -439,12 +427,10 @@ final class SessionManager: ObservableObject {
     private func handleAutoRestart(for command: Command, state: inout SessionState) async {
         guard command.autoRestart.enabled else {
             // Session crashed but auto-restart is disabled
-            print("[SessionManager] Auto-restart disabled for \(command.id)")
             await sendCrashNotification(for: command)
             return
         }
         guard !state.restartPaused else {
-            print("[SessionManager] Auto-restart paused for \(command.id)")
             return
         }
 
@@ -452,20 +438,16 @@ final class SessionManager: ObservableObject {
 
         if let lastStart = state.lastStartTime, let lastExit = state.lastExitTime {
             let runDuration = max(0, lastExit.timeIntervalSince(lastStart))
-            print("[SessionManager] Session \(command.id) ran for \(String(format: "%.1f", runDuration))s before exit")
             if runDuration > Self.failureResetInterval {
-                print("[SessionManager] Run duration > \(Self.failureResetInterval)s, resetting failure counter")
                 nextFailures = 0
             }
         }
 
         nextFailures += 1
         state.consecutiveFailures = nextFailures
-        print("[SessionManager] Consecutive failures for \(command.id): \(state.consecutiveFailures) / \(command.autoRestart.maxRetries)")
 
         if state.consecutiveFailures >= command.autoRestart.maxRetries {
             state.restartPaused = true
-            print("[SessionManager] Max retries reached for \(command.id), pausing auto-restart")
             await sendFailureNotification(for: command, failures: state.consecutiveFailures)
             return
         }
@@ -477,7 +459,6 @@ final class SessionManager: ObservableObject {
 
         let delaySeconds = max(0, command.autoRestart.retryDelaySeconds)
         let commandId = command.id
-        print("[SessionManager] Scheduling auto-restart for \(commandId) in \(delaySeconds)s")
 
         restartTasks[commandId]?.task.cancel()
         let taskId = UUID()
@@ -489,7 +470,6 @@ final class SessionManager: ObservableObject {
             // Clean up any dead session before attempting restart
             if let command = self.command(for: commandId) {
                 if await TmuxService.hasSession(name: command.sessionName, host: command.host) {
-                    print("[SessionManager] Cleaning up dead session before restart: \(command.sessionName)")
                     try? await TmuxService.killSession(name: command.sessionName, host: command.host)
                 }
             }
@@ -497,7 +477,6 @@ final class SessionManager: ObservableObject {
             do {
                 try await self.startSession(commandId: commandId, resetFailureCount: false)
             } catch {
-                print("[SessionManager] Auto-restart failed for \(commandId): \(error.localizedDescription)")
                 self.recordError(error)
                 // Update failure state to prevent infinite restart attempts
                 var state = self.sessionStates[commandId] ?? SessionState(commandId: commandId)

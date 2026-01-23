@@ -18,6 +18,7 @@ struct SessionState: Identifiable {
     var restartPaused: Bool
     var lastError: String?
     var lastErrorTime: Date?
+    var isConnectionError: Bool?
     
     /// SF Symbol name based on the current state
     var statusIcon: String {

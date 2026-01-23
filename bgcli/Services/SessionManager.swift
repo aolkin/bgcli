@@ -413,10 +413,29 @@ final class SessionManager: ObservableObject {
             }
             state.lastError = nil
             state.lastErrorTime = nil
+            state.isConnectionError = nil
             sessionStates[commandId] = state
         } catch {
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-            state.lastError = error.localizedDescription
+            // Try to identify SSH errors and present friendlier messages.
+            // Prefer inspecting TmuxError.commandFailed output (if available) to get raw stderr, otherwise fall back to localizedDescription.
+            var diagnosticText = error.localizedDescription
+            if let tmuxErr = error as? TmuxError {
+                switch tmuxErr {
+                case .commandFailed(let output, _):
+                    diagnosticText = output
+                default:
+                    break
+                }
+            }
+
+            if let sshMessage = Shell.parseSSHError(diagnosticText) {
+                state.isConnectionError = true
+                state.lastError = sshMessage
+            } else {
+                state.isConnectionError = false
+                state.lastError = diagnosticText
+            }
             state.lastErrorTime = Date()
             sessionStates[commandId] = state
             await sendStartupFailureNotification(for: command, error: error)
@@ -431,6 +450,16 @@ final class SessionManager: ObservableObject {
             return
         }
         guard !state.restartPaused else {
+            return
+        }
+
+        // If recent connection errors occurred, pause restarts to avoid spamming failures
+        if state.isConnectionError == true,
+           let lastErrorTime = state.lastErrorTime,
+           Date().timeIntervalSince(lastErrorTime) < 60 {
+            state.restartPaused = true
+            let connectionMessage = state.lastError
+            Task { await sendConnectionFailureNotification(for: command, message: connectionMessage) }
             return
         }
 
@@ -496,6 +525,31 @@ final class SessionManager: ObservableObject {
         let content = UNMutableNotificationContent()
         content.title = "bgcli: Session Failed"
         content.body = "\(command.name) has failed \(failures) times and auto-restart has been paused."
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+        } catch {
+            recordError(error)
+        }
+    }
+
+    private func sendConnectionFailureNotification(for command: Command, message: String?) async {
+        let isAuthorized = await requestNotificationAuthorization()
+        guard isAuthorized else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "bgcli: SSH Connection Error"
+        if let message = message {
+            content.body = "\(command.name): \(message). Auto-restart paused."
+        } else {
+            content.body = "\(command.name): SSH connection failed. Auto-restart paused."
+        }
 
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,
@@ -619,6 +673,10 @@ final class SessionManager: ObservableObject {
         }
 
         isTmuxInstalled = false
+    }
+
+    func testConnection(host: String?) async -> Bool {
+        return await Shell.runQuiet("true", host: host)
     }
 
     private func handleConfigError(_ error: ConfigError) async {

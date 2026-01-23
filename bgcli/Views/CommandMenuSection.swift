@@ -126,6 +126,9 @@ struct CommandMenuSection: View {
     }
 
     private var statusColor: Color {
+        if state.isConnectionError == true {
+            return .red
+        }
         if state.restartPaused {
             return .yellow
         }

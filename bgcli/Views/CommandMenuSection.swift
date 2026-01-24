@@ -82,22 +82,28 @@ struct CommandMenuSection: View {
 
     private var commandStateActions: some View {
         Group {
-            if state.restartPaused {
+            if state.isStarting {
+                Text("Starting...")
+                    .foregroundStyle(.secondary)
+            } else if state.isStopping {
+                Text("Stopping...")
+                    .foregroundStyle(.secondary)
+            } else if state.restartPaused {
                 Button("Resume & Start") {
                     Task { @MainActor in
-                        await handleAction { try await sessionManager.resumeAutoRestart(commandId: command.id) }
+                        await sessionManager.resumeAutoRestart(commandId: command.id)
                     }
                 }
             } else if state.isRunning {
                 Button("Stop") {
                     Task { @MainActor in
-                        await handleAction { try await sessionManager.stopSession(commandId: command.id) }
+                        await sessionManager.stopSession(commandId: command.id)
                     }
                 }
 
                 Button("Restart") {
                     Task { @MainActor in
-                        await handleAction { try await sessionManager.restartSession(commandId: command.id) }
+                        await sessionManager.restartSession(commandId: command.id)
                     }
                 }
 
@@ -114,7 +120,7 @@ struct CommandMenuSection: View {
             } else {
                 Button("Start") {
                     Task { @MainActor in
-                        await handleAction { try await sessionManager.startSession(commandId: command.id) }
+                        await sessionManager.startSession(commandId: command.id)
                     }
                 }
             }
@@ -126,6 +132,9 @@ struct CommandMenuSection: View {
     }
 
     private var statusColor: Color {
+        if state.isStarting || state.isStopping {
+            return .blue
+        }
         if state.isConnectionError == true {
             return .red
         }
@@ -185,7 +194,7 @@ struct CommandMenuSection: View {
 #Preview {
     CommandMenuSection(
         command: Command(id: "demo", name: "Demo", command: "echo hello", host: "remote"),
-        state: SessionState(commandId: "demo", isRunning: true)
+        state: SessionState(commandId: "demo", executionState: .running)
     )
     .environmentObject(SessionManager())
 }

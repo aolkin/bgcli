@@ -75,12 +75,13 @@ final class SessionManager: ObservableObject {
     @Published var isLoading = false
     @Published var lastError: String?
     @Published var isTmuxInstalled: Bool = true
-    
+
     private static let outputLineCount = 10
     private static let failureResetInterval: TimeInterval = 30
     private static let nanosecondsPerSecond: UInt64 = 1_000_000_000
-    
+
     private let pollInterval: TimeInterval
+    private let operations = SessionOperations()
     private var loadTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var restartTasks: [String: RestartTask] = [:]
@@ -162,106 +163,197 @@ final class SessionManager: ObservableObject {
         try await saveConfig()
     }
     
-    func startSession(commandId: String, resetFailureCount: Bool = true) async throws {
-        try await withCommandLock(commandId: commandId) {
-            guard let command = command(for: commandId) else {
-                throw SessionManagerError.commandNotFound(commandId)
+    nonisolated func startSession(commandId: String, resetFailureCount: Bool = true) async {
+        // Capture needed data before entering background context
+        guard let command = await MainActor.run(body: { command(for: commandId) }) else {
+            return
+        }
+
+        // Set starting state immediately on MainActor
+        await MainActor.run {
+            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
+            state.executionState = .starting
+            sessionStates[commandId] = state
+        }
+
+        // Perform operation (already off MainActor since this function is nonisolated)
+        do {
+            try await operations.startSession(commandId: commandId, command: command, resetFailureCount: resetFailureCount)
+
+            // Update state on success
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                var state = self.sessionStates[commandId] ?? SessionState(commandId: commandId)
+                state.executionState = .running
+                state.lastStartTime = Date()
+                if resetFailureCount {
+                    state.consecutiveFailures = 0
+                }
+                state.lastError = nil
+                state.lastErrorTime = nil
+                state.isConnectionError = nil
+                self.sessionStates[commandId] = state
             }
-            try await startSessionLocked(commandId: commandId, command: command, resetFailureCount: resetFailureCount)
+        } catch {
+            // Update state on error
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                var state = self.sessionStates[commandId] ?? SessionState(commandId: commandId)
+                state.executionState = .stopped
+
+                var diagnosticText = error.localizedDescription
+                if let tmuxErr = error as? TmuxError {
+                    switch tmuxErr {
+                    case .commandFailed(let output, _):
+                        diagnosticText = output
+                    default:
+                        break
+                    }
+                }
+
+                if let sshMessage = Shell.parseSSHError(diagnosticText) {
+                    state.isConnectionError = true
+                    state.lastError = sshMessage
+                } else {
+                    state.isConnectionError = false
+                    state.lastError = diagnosticText
+                }
+                state.lastErrorTime = Date()
+                self.sessionStates[commandId] = state
+            }
+
+            await sendStartupFailureNotification(for: command, error: error)
         }
     }
     
-    func stopSession(commandId: String) async throws {
-        try await withCommandLock(commandId: commandId) {
-            guard let command = command(for: commandId) else {
-                throw SessionManagerError.commandNotFound(commandId)
-            }
+    nonisolated func stopSession(commandId: String) async {
+        // Capture needed data before entering background context
+        guard let command = await MainActor.run(body: { command(for: commandId) }) else {
+            return
+        }
 
+        // Set stopping state immediately on MainActor
+        await MainActor.run {
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
+            state.executionState = .stopping
             state.restartPaused = true
+            sessionStates[commandId] = state
+
             restartTasks[commandId]?.task.cancel()
             restartTasks[commandId] = nil
+        }
 
-            var killSucceeded = false
-            defer {
-                if killSucceeded {
-                    state.isRunning = false
-                    state.lastExitTime = Date()
-                }
-                sessionStates[commandId] = state
+        // Perform operation (already off MainActor since this function is nonisolated)
+        do {
+            try await operations.stopSession(command: command)
+
+            // Update state on success
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                var state = self.sessionStates[commandId] ?? SessionState(commandId: commandId)
+                state.executionState = .stopped
+                state.lastExitTime = Date()
+                self.sessionStates[commandId] = state
             }
-
-            try await TmuxService.killSession(name: command.sessionName, host: command.host)
-            killSucceeded = true
+        } catch {
+            // Update state on error
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                var state = self.sessionStates[commandId] ?? SessionState(commandId: commandId)
+                state.executionState = .stopped
+                state.lastError = error.localizedDescription
+                state.lastErrorTime = Date()
+                self.sessionStates[commandId] = state
+            }
         }
     }
     
-    func restartSession(commandId: String) async throws {
-        try await withCommandLock(commandId: commandId) {
-            guard let command = command(for: commandId) else {
-                throw SessionManagerError.commandNotFound(commandId)
-            }
+    nonisolated func restartSession(commandId: String) async {
+        guard let command = await MainActor.run(body: { command(for: commandId) }) else {
+            return
+        }
 
-            if await TmuxService.isRunning(command) {
-                try await TmuxService.killSession(name: command.sessionName, host: command.host)
-            }
+        // Stop first if running
+        if await operations.checkSessionStatus(command: command) {
+            try? await operations.stopSession(command: command)
+        }
 
+        await MainActor.run {
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
             state.restartPaused = false
             sessionStates[commandId] = state
-
-            try await startSessionLocked(commandId: commandId, command: command, resetFailureCount: true)
         }
+
+        // Then start
+        await startSession(commandId: commandId, resetFailureCount: true)
     }
     
-    func resumeAutoRestart(commandId: String) async throws {
-        try await withCommandLock(commandId: commandId) {
-            guard let command = command(for: commandId) else {
-                throw SessionManagerError.commandNotFound(commandId)
-            }
+    nonisolated func resumeAutoRestart(commandId: String) async {
+        guard await MainActor.run(body: { command(for: commandId) }) != nil else {
+            return
+        }
 
+        await MainActor.run {
             var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
             state.restartPaused = false
             sessionStates[commandId] = state
-
-            try await startSessionLocked(commandId: commandId, command: command, resetFailureCount: true)
         }
+
+        await startSession(commandId: commandId, resetFailureCount: true)
     }
     
-    func refreshAllStatuses() async {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        defer { isRefreshing = false }
-        
-        let groupedCommands = Dictionary(grouping: commands, by: { $0.host })
-        
-        for (host, hostCommands) in groupedCommands {
-            do {
-                let generationSnapshot = operationGenerations
-                let sessions = try await TmuxService.listSessions(host: host)
-                let runningSessions = Set(sessions.map { $0.name })
-                
-                for command in hostCommands {
-                    await updateState(
-                        for: command,
-                        runningSessions: runningSessions,
-                        generationSnapshot: generationSnapshot
-                    )
+    nonisolated func refreshAllStatuses() async {
+        let shouldRefresh = await MainActor.run {
+            guard !isRefreshing else { return false }
+            isRefreshing = true
+            return true
+        }
+        guard shouldRefresh else { return }
+
+        let groupedCommands = await MainActor.run { Dictionary(grouping: commands, by: { $0.host }) }
+
+        // Run status checks in background (already off MainActor since this function is nonisolated)
+        await withTaskGroup(of: Void.self) { group in
+            for (host, hostCommands) in groupedCommands {
+                group.addTask {
+                    await self.refreshHostStatuses(host: host, commands: hostCommands)
                 }
-            } catch {
-                recordError(error)
+            }
+        }
+
+        await MainActor.run {
+            isRefreshing = false
+        }
+    }
+
+    nonisolated private func refreshHostStatuses(host: String?, commands: [Command]) async {
+        do {
+            let generationSnapshot = await MainActor.run { operationGenerations }
+            let sessions = try await operations.listSessions(host: host)
+            let runningSessions = Set(sessions.map { $0.name })
+
+            for command in commands {
+                await updateState(
+                    for: command,
+                    runningSessions: runningSessions,
+                    generationSnapshot: generationSnapshot
+                )
+            }
+        } catch {
+            await MainActor.run { [weak self] in
+                self?.recordError(error)
             }
         }
     }
     
     func refreshStatus(commandId: String) async {
         guard let command = command(for: commandId) else { return }
-        
+
         do {
             let generationSnapshot = operationGenerations
-            let sessions = try await TmuxService.listSessions(host: command.host)
+            let sessions = try await operations.listSessions(host: command.host)
             let runningSessions = Set(sessions.map { $0.name })
-            
+
             await updateState(
                 for: command,
                 runningSessions: runningSessions,
@@ -273,24 +365,18 @@ final class SessionManager: ObservableObject {
     }
     
     func getOutput(commandId: String, lines: Int? = nil) async throws -> [String] {
-        try await withCommandLock(commandId: commandId) {
-            guard let command = command(for: commandId) else {
-                throw SessionManagerError.commandNotFound(commandId)
-            }
-            
-            let linesToFetch = lines ?? Self.outputLineCount
-            let output = try await TmuxService.captureOutput(
-                sessionName: command.sessionName,
-                lines: linesToFetch,
-                host: command.host
-            )
-            
-            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-            state.lastOutput = output
-            sessionStates[commandId] = state
-            
-            return output
+        guard let command = command(for: commandId) else {
+            throw SessionManagerError.commandNotFound(commandId)
         }
+
+        let linesToFetch = lines ?? Self.outputLineCount
+        let output = try await operations.getOutput(command: command, lines: linesToFetch)
+
+        var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
+        state.lastOutput = output
+        sessionStates[commandId] = state
+
+        return output
     }
     
     private func loadInitialConfig() async {
@@ -351,39 +437,38 @@ final class SessionManager: ObservableObject {
         let isRunningNow = runningSessions.contains(command.sessionName)
 
         if isRunningNow {
-            state.isRunning = true
+            state.executionState = .running
             if state.lastStartTime == nil {
                 state.lastStartTime = Date()
             }
             // Read from log file for persistent output
             do {
-                state.lastOutput = try await TmuxService.readLogFile(
-                    path: command.logFilePath,
-                    lines: Self.outputLineCount,
-                    host: command.host
+                state.lastOutput = try await operations.readLogFile(
+                    command: command,
+                    lines: Self.outputLineCount
                 )
             } catch {
                 // Fallback to tmux capture if log file read fails
                 do {
-                    state.lastOutput = try await TmuxService.captureOutput(
-                        sessionName: command.sessionName,
-                        lines: Self.outputLineCount,
-                        host: command.host
+                    state.lastOutput = try await operations.getOutput(
+                        command: command,
+                        lines: Self.outputLineCount
                     )
                 } catch {
-                    recordError(error)
+                    await MainActor.run { [weak self] in
+                        self?.recordError(error)
+                    }
                 }
             }
         } else {
-            state.isRunning = false
+            state.executionState = .stopped
             if wasRunning {
                 state.lastExitTime = Date()
                 // Capture final output from log file before auto-restarting
                 do {
-                    let finalOutput = try await TmuxService.readLogFile(
-                        path: command.logFilePath,
-                        lines: Self.outputLineCount,
-                        host: command.host
+                    let finalOutput = try await operations.readLogFile(
+                        command: command,
+                        lines: Self.outputLineCount
                     )
                     state.lastOutput = finalOutput
                 } catch {
@@ -396,53 +481,6 @@ final class SessionManager: ObservableObject {
         sessionStates[command.id] = state
     }
 
-    private func startSessionLocked(commandId: String, command: Command, resetFailureCount: Bool) async throws {
-        if await TmuxService.isRunning(command) {
-            throw SessionManagerError.sessionAlreadyRunning(commandId)
-        }
-
-        do {
-            try await TmuxService.startSession(for: command)
-
-            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-            state.isRunning = true
-            state.lastStartTime = Date()
-            // Only reset failure counter on manual start, not on auto-restart
-            if resetFailureCount {
-                state.consecutiveFailures = 0
-            }
-            state.lastError = nil
-            state.lastErrorTime = nil
-            state.isConnectionError = nil
-            sessionStates[commandId] = state
-        } catch {
-            var state = sessionStates[commandId] ?? SessionState(commandId: commandId)
-            // Try to identify SSH errors and present friendlier messages.
-            // Prefer inspecting TmuxError.commandFailed output (if available) to get raw stderr, otherwise fall back to localizedDescription.
-            var diagnosticText = error.localizedDescription
-            if let tmuxErr = error as? TmuxError {
-                switch tmuxErr {
-                case .commandFailed(let output, _):
-                    diagnosticText = output
-                default:
-                    break
-                }
-            }
-
-            if let sshMessage = Shell.parseSSHError(diagnosticText) {
-                state.isConnectionError = true
-                state.lastError = sshMessage
-            } else {
-                state.isConnectionError = false
-                state.lastError = diagnosticText
-            }
-            state.lastErrorTime = Date()
-            sessionStates[commandId] = state
-            await sendStartupFailureNotification(for: command, error: error)
-            throw error
-        }
-    }
-    
     private func handleAutoRestart(for command: Command, state: inout SessionState) async {
         guard command.autoRestart.enabled else {
             // Session crashed but auto-restart is disabled
@@ -498,21 +536,12 @@ final class SessionManager: ObservableObject {
 
             // Clean up any dead session before attempting restart
             if let command = self.command(for: commandId) {
-                if await TmuxService.hasSession(name: command.sessionName, host: command.host) {
-                    try? await TmuxService.killSession(name: command.sessionName, host: command.host)
+                if await self.operations.checkSessionStatus(command: command) {
+                    try? await self.operations.stopSession(command: command)
                 }
             }
 
-            do {
-                try await self.startSession(commandId: commandId, resetFailureCount: false)
-            } catch {
-                self.recordError(error)
-                // Update failure state to prevent infinite restart attempts
-                var state = self.sessionStates[commandId] ?? SessionState(commandId: commandId)
-                state.lastError = error.localizedDescription
-                state.lastErrorTime = Date()
-                self.sessionStates[commandId] = state
-            }
+            await self.startSession(commandId: commandId, resetFailureCount: false)
             self.clearRestartTask(commandId: commandId, taskId: taskId)
         }
         restartTasks[commandId] = RestartTask(id: taskId, task: task)

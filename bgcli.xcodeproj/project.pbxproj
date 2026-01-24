@@ -20,6 +20,7 @@
 		1A00002D000000000000001 /* TerminalLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00002E000000000000001 /* TerminalLauncher.swift */; };
 		93ECA6ED2F22333E003C9DD5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93ECA6EC2F22333E003C9DD5 /* SettingsView.swift */; };
 		93ECA6EE2F22333E003C9DD5 /* CommandFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93ECA6EB2F22333E003C9DD5 /* CommandFormView.swift */; };
+		93ECA6F02F23D0AB003C9DD5 /* SessionOperations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93ECA6EF2F23D0AB003C9DD5 /* SessionOperations.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +40,7 @@
 		1A00002F000000000000001 /* bgcli.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = bgcli.entitlements; sourceTree = "<group>"; };
 		93ECA6EB2F22333E003C9DD5 /* CommandFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandFormView.swift; sourceTree = "<group>"; };
 		93ECA6EC2F22333E003C9DD5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		93ECA6EF2F23D0AB003C9DD5 /* SessionOperations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionOperations.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,6 +98,7 @@
 		1A000020000000000000001 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				93ECA6EF2F23D0AB003C9DD5 /* SessionOperations.swift */,
 				1A000026000000000000001 /* TmuxService.swift */,
 				1A000027000000000000001 /* SessionManager.swift */,
 			);
@@ -202,6 +205,7 @@
 				1A000025000000000000001 /* TmuxService.swift in Sources */,
 				1A000028000000000000001 /* SessionManager.swift in Sources */,
 				1A00002A000000000000001 /* MenuContentView.swift in Sources */,
+				93ECA6F02F23D0AB003C9DD5 /* SessionOperations.swift in Sources */,
 				1A00002C000000000000001 /* CommandMenuSection.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -351,7 +355,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.olkin.bgcli;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.9;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -379,7 +383,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.olkin.bgcli;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.9;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};

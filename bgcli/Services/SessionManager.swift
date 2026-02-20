@@ -27,7 +27,7 @@ enum SessionManagerError: Error, LocalizedError {
 }
 
 @MainActor
-final class SessionManager: ObservableObject {
+final class SessionManager: ObservableObject, @unchecked Sendable {
     struct CommandWithState: Identifiable {
         let command: Command
         let state: SessionState
@@ -81,7 +81,7 @@ final class SessionManager: ObservableObject {
     private static let nanosecondsPerSecond: UInt64 = 1_000_000_000
 
     private let pollInterval: TimeInterval
-    private let operations = SessionOperations()
+    private nonisolated let operations = SessionOperations()
     private var loadTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var restartTasks: [String: RestartTask] = [:]

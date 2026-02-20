@@ -775,7 +775,7 @@ final class SessionManager: ObservableObject, @unchecked Sendable {
         return lock
     }
 
-    private func withCommandLock<T>(
+    private func withCommandLock<T: Sendable>(
         commandId: String,
         operation: () async throws -> T
     ) async throws -> T {

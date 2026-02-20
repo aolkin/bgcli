@@ -137,7 +137,7 @@ struct CommandFormView: View {
                         save()
                         if case .edit(let originalCommand) = mode {
                             Task {
-                                try? await sessionManager.restartSession(commandId: originalCommand.id)
+                                await sessionManager.restartSession(commandId: originalCommand.id)
                             }
                         }
                     }

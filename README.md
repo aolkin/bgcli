@@ -21,7 +21,7 @@ gh auth login
 
 ### Manual Installation
 
-1. Download `Daemonic-macos.zip` from the [Releases](../../releases) page
+1. Download `Daemonic.zip` from the [Releases](../../releases) page
 2. Unzip the archive
 3. **Important**: Remove the quarantine attribute to avoid "app is damaged" error:
    ```bash

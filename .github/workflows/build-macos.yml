@@ -39,21 +39,21 @@ jobs:
     - name: Create ZIP archive
       run: |
         cd daemonic_build
-        zip -r ../Daemonic-macos.zip Daemonic.app
+        zip -r ../Daemonic.zip Daemonic.app
         cd ..
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Daemonic-macos
-        path: Daemonic-macos.zip
+        name: Daemonic
+        path: Daemonic.zip
         retention-days: 30
 
     - name: Upload to GitHub Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: Daemonic-macos.zip
+        files: Daemonic.zip
 
     - name: Comment on PR with artifact download link
       if: github.event_name == 'pull_request'
@@ -66,5 +66,5 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: `📦 Build artifact available: [Daemonic-macos.zip](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            body: `📦 Build artifact available: [Daemonic.zip](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
           });

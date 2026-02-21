@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Variables and constants
 REPO="aolkin/daemonic"
-ARTIFACT_NAME="Daemonic-macos"
-ZIP_NAME="Daemonic-macos.zip"
+ARTIFACT_NAME="Daemonic"
+ZIP_NAME="Daemonic.zip"
 APP_NAME="Daemonic.app"
 DEFAULT_INSTALL_DIR="$HOME/Applications"
 TEMP_DIR=""

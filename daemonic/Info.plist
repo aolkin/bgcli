@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>dev.olkin.bgcli</string>
+	<string>dev.olkin.daemonic</string>
 	<key>LSUIElement</key>
 	<true/>
 </dict>

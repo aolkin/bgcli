@@ -30,6 +30,6 @@ Acceptance Criteria
 
 Relevant files
 
-- bgcli/Services/SessionManager.swift
+- daemonic/Services/SessionManager.swift
 
 Estimated effort: 1 day

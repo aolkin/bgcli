@@ -1,8 +1,8 @@
 //
 //  AppConfig.swift
-//  bgcli
+//  daemonic
 //
-//  Created for bgcli project
+//  Created for daemonic project
 //
 
 import Foundation
@@ -32,15 +32,15 @@ enum ConfigError: Error, LocalizedError {
 struct AppConfig: Codable {
     var commands: [Command]
     
-    /// Config directory path: ~/.config/bgcli/
+    /// Config directory path: ~/.config/daemonic/
     static var configDirectory: URL {
         FileManager.default
             .homeDirectoryForCurrentUser
             .appendingPathComponent(".config")
-            .appendingPathComponent("bgcli")
+            .appendingPathComponent("daemonic")
     }
     
-    /// Config file path: ~/.config/bgcli/config.json
+    /// Config file path: ~/.config/daemonic/config.json
     static var configFilePath: URL {
         configDirectory.appendingPathComponent("config.json")
     }

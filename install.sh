@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # Variables and constants
-REPO="aolkin/bgcli"
-ARTIFACT_NAME="bgcli-macos"
-ZIP_NAME="bgcli-macos.zip"
-APP_NAME="bgcli.app"
+REPO="aolkin/daemonic"
+ARTIFACT_NAME="daemonic-macos"
+ZIP_NAME="daemonic-macos.zip"
+APP_NAME="daemonic.app"
 DEFAULT_INSTALL_DIR="$HOME/Applications"
 TEMP_DIR=""
 
@@ -54,7 +54,7 @@ print_verbose() {
 
 print_help() {
   cat << EOF
-bgcli Installation Script
+daemonic Installation Script
 
 Usage: $0 [VERSION|PR_NUMBER] [OPTIONS]
 
@@ -266,7 +266,7 @@ extract_and_prepare() {
     exit 5
   fi
 
-  # Verify bgcli.app exists
+  # Verify daemonic.app exists
   if [[ ! -d "$TEMP_DIR/$APP_NAME" ]]; then
     print_error "Expected app bundle not found: $APP_NAME"
     echo "Contents of download:"
@@ -365,7 +365,7 @@ main() {
 
   echo ""
   print_info "╔══════════════════════════════════════╗"
-  print_info "║   bgcli Installation Script          ║"
+  print_info "║   daemonic Installation Script          ║"
   print_info "╚══════════════════════════════════════╝"
   echo ""
 
@@ -409,10 +409,10 @@ main() {
   print_success "║   Installation Complete! ✓           ║"
   print_success "╚══════════════════════════════════════╝"
   echo ""
-  print_info "bgcli has been installed to:"
+  print_info "daemonic has been installed to:"
   echo "  $INSTALL_DIR/$APP_NAME"
   echo ""
-  print_info "You can now launch bgcli from your Applications folder."
+  print_info "You can now launch daemonic from your Applications folder."
   echo ""
 }
 

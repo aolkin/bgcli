@@ -1,8 +1,8 @@
 //
 //  CommandMenuSection.swift
-//  bgcli
+//  daemonic
 //
-//  Created for bgcli project
+//  Created for daemonic project
 //
 
 import AppKit

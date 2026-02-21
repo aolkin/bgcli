@@ -3,9 +3,9 @@ set -euo pipefail
 
 # Variables and constants
 REPO="aolkin/daemonic"
-ARTIFACT_NAME="daemonic-macos"
-ZIP_NAME="daemonic-macos.zip"
-APP_NAME="daemonic.app"
+ARTIFACT_NAME="Daemonic-macos"
+ZIP_NAME="Daemonic-macos.zip"
+APP_NAME="Daemonic.app"
 DEFAULT_INSTALL_DIR="$HOME/Applications"
 TEMP_DIR=""
 
@@ -54,7 +54,7 @@ print_verbose() {
 
 print_help() {
   cat << EOF
-daemonic Installation Script
+Daemonic Installation Script
 
 Usage: $0 [VERSION|PR_NUMBER] [OPTIONS]
 
@@ -266,7 +266,7 @@ extract_and_prepare() {
     exit 5
   fi
 
-  # Verify daemonic.app exists
+  # Verify Daemonic.app exists
   if [[ ! -d "$TEMP_DIR/$APP_NAME" ]]; then
     print_error "Expected app bundle not found: $APP_NAME"
     echo "Contents of download:"
@@ -365,7 +365,7 @@ main() {
 
   echo ""
   print_info "╔══════════════════════════════════════╗"
-  print_info "║   daemonic Installation Script          ║"
+  print_info "║   Daemonic Installation Script          ║"
   print_info "╚══════════════════════════════════════╝"
   echo ""
 
@@ -409,10 +409,10 @@ main() {
   print_success "║   Installation Complete! ✓           ║"
   print_success "╚══════════════════════════════════════╝"
   echo ""
-  print_info "daemonic has been installed to:"
+  print_info "Daemonic has been installed to:"
   echo "  $INSTALL_DIR/$APP_NAME"
   echo ""
-  print_info "You can now launch daemonic from your Applications folder."
+  print_info "You can now launch Daemonic from your Applications folder."
   echo ""
 }
 

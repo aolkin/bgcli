@@ -21,7 +21,7 @@ enum SessionManagerError: Error, LocalizedError {
         case .sessionAlreadyRunning(let id):
             return "Session for command '\(id)' is already running"
         case .notificationDenied:
-            return "Notifications are disabled for daemonic"
+            return "Notifications are disabled for Daemonic"
         }
     }
 }
@@ -552,7 +552,7 @@ final class SessionManager: ObservableObject, @unchecked Sendable {
         guard isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "daemonic: Session Failed"
+        content.title = "Daemonic: Session Failed"
         content.body = "\(command.name) has failed \(failures) times and auto-restart has been paused."
 
         let request = UNNotificationRequest(
@@ -573,7 +573,7 @@ final class SessionManager: ObservableObject, @unchecked Sendable {
         guard isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "daemonic: SSH Connection Error"
+        content.title = "Daemonic: SSH Connection Error"
         if let message = message {
             content.body = "\(command.name): \(message). Auto-restart paused."
         } else {
@@ -598,7 +598,7 @@ final class SessionManager: ObservableObject, @unchecked Sendable {
         guard isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "daemonic: Failed to Start"
+        content.title = "Daemonic: Failed to Start"
         content.body = "\(command.name) failed to start: \(error.localizedDescription)"
 
         let request = UNNotificationRequest(
@@ -619,7 +619,7 @@ final class SessionManager: ObservableObject, @unchecked Sendable {
         guard isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "daemonic: Session Crashed"
+        content.title = "Daemonic: Session Crashed"
         let body: String
         if command.autoRestart.enabled {
             body = "\(command.name) has stopped unexpectedly. Auto-restarting in \(command.autoRestart.retryDelaySeconds)s..."

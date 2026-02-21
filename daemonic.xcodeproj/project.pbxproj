@@ -26,7 +26,7 @@
 /* Begin PBXFileReference section */
 		1A000002000000000000001 /* daemonicApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = daemonicApp.swift; sourceTree = "<group>"; };
 		1A000004000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		1A000005000000000000001 /* daemonic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = daemonic.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A000005000000000000001 /* Daemonic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Daemonic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A000006000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1A00001A000000000000001 /* Command.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Command.swift; sourceTree = "<group>"; };
 		1A00001C000000000000001 /* SessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionState.swift; sourceTree = "<group>"; };
@@ -80,7 +80,7 @@
 		1A00000E000000000000001 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				1A000005000000000000001 /* daemonic.app */,
+				1A000005000000000000001 /* Daemonic.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -128,9 +128,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		1A00000F000000000000001 /* daemonic */ = {
+		1A00000F000000000000001 /* Daemonic */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1A000010000000000000001 /* Build configuration list for PBXNativeTarget "daemonic" */;
+			buildConfigurationList = 1A000010000000000000001 /* Build configuration list for PBXNativeTarget "Daemonic" */;
 			buildPhases = (
 				1A000011000000000000001 /* Sources */,
 				1A00000B000000000000001 /* Frameworks */,
@@ -140,9 +140,9 @@
 			);
 			dependencies = (
 			);
-			name = daemonic;
-			productName = daemonic;
-			productReference = 1A000005000000000000001 /* daemonic.app */;
+			name = Daemonic;
+			productName = Daemonic;
+			productReference = 1A000005000000000000001 /* Daemonic.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -173,7 +173,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				1A00000F000000000000001 /* daemonic */,
+				1A00000F000000000000001 /* Daemonic */,
 			);
 		};
 /* End PBXProject section */
@@ -390,7 +390,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1A000010000000000000001 /* Build configuration list for PBXNativeTarget "daemonic" */ = {
+		1A000010000000000000001 /* Build configuration list for PBXNativeTarget "Daemonic" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A000017000000000000001 /* Debug */,

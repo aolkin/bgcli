@@ -70,7 +70,7 @@ struct MenuContentView: View {
 
             Divider()
 
-            Button("Quit daemonic") {
+            Button("Quit Daemonic") {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")

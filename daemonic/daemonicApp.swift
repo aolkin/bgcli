@@ -12,7 +12,7 @@ struct daemonicApp: App {
     @StateObject private var sessionManager = SessionManager()
 
     var body: some Scene {
-        MenuBarExtra("daemonic", systemImage: "terminal") {
+        MenuBarExtra("Daemonic", systemImage: "terminal") {
             MenuContentView()
                 .environmentObject(sessionManager)
         }

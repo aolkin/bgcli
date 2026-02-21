@@ -1,8 +1,8 @@
 //
 //  TmuxService.swift
-//  bgcli
+//  daemonic
 //
-//  Created for bgcli project
+//  Created for daemonic project
 //
 
 import Foundation
@@ -59,7 +59,7 @@ enum TmuxService {
                     guard parts.count == 3 else { return nil }
 
                     let name = String(parts[0])
-                    guard name.hasPrefix("bgcli-") else { return nil }
+                    guard name.hasPrefix("daemonic-") else { return nil }
 
                     let isAttached = String(parts[1]) == "1"
                     let windowCount = Int(parts[2]) ?? 0

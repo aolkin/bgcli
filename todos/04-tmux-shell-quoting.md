@@ -30,7 +30,7 @@ Acceptance Criteria
 
 Relevant files
 
-- bgcli/Utilities/Shell.swift
-- bgcli/Services/TmuxService.swift
+- daemonic/Utilities/Shell.swift
+- daemonic/Services/TmuxService.swift
 
 Estimated effort: 2 days

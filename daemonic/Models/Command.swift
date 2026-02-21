@@ -1,8 +1,8 @@
 //
 //  Command.swift
-//  bgcli
+//  daemonic
 //
-//  Created for bgcli project
+//  Created for daemonic project
 //
 
 import Foundation
@@ -32,13 +32,13 @@ struct Command: Codable, Identifiable, Equatable {
     
     /// Returns the tmux session name for this command
     var sessionName: String {
-        "bgcli-\(id)"
+        "daemonic-\(id)"
     }
 
     /// Returns the log file path for this command's output
     var logFilePath: String {
         let logsDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".config/bgcli/logs")
+            .appendingPathComponent(".config/daemonic/logs")
         return logsDir.appendingPathComponent("\(id).log").path
     }
 

@@ -1,18 +1,18 @@
 //
-//  bgcliApp.swift
-//  bgcli
+//  daemonicApp.swift
+//  daemonic
 //
-//  Created for bgcli project
+//  Created for daemonic project
 //
 
 import SwiftUI
 
 @main
-struct bgcliApp: App {
+struct daemonicApp: App {
     @StateObject private var sessionManager = SessionManager()
 
     var body: some Scene {
-        MenuBarExtra("bgcli", systemImage: "terminal") {
+        MenuBarExtra("Daemonic", systemImage: "terminal") {
             MenuContentView()
                 .environmentObject(sessionManager)
         }

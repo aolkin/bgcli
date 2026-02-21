@@ -1,8 +1,8 @@
 //
 //  MenuContentView.swift
-//  bgcli
+//  daemonic
 //
-//  Created for bgcli project
+//  Created for daemonic project
 //
 
 import SwiftUI
@@ -70,7 +70,7 @@ struct MenuContentView: View {
 
             Divider()
 
-            Button("Quit bgcli") {
+            Button("Quit Daemonic") {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")
